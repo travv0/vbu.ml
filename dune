@@ -1,6 +1,6 @@
 (executable
  (name sbu)
- (libraries base stdio ANSITerminal))
+ (libraries base stdio ANSITerminal dune-glob unix))
 
 (cram
  (deps sbu.exe))

@@ -1,7 +1,5 @@
 {
-  "esy": {
-    "build": "dune build"
-  },
+  "esy": { "build": "dune build" },
   "scripts": {
     "run": "esy b dune exec ./sbu.exe",
     "test": "esy b dune test",
@@ -13,10 +11,10 @@
     "@opam/base": "*",
     "@opam/cmdliner": "*",
     "@opam/dune": "*",
+    "@opam/dune-glob": "2.9.1",
     "@opam/stdio": "*",
-    "ocaml": "*"
+    "ocaml": "*",
+    "unix": "^0.0.0"
   },
-  "devDependencies": {
-    "@opam/ocaml-lsp-server": "*"
-  }
+  "devDependencies": { "@opam/ocaml-lsp-server": "*" }
 }
