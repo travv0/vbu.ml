@@ -1,0 +1,22 @@
+{
+  "esy": {
+    "build": "dune build"
+  },
+  "scripts": {
+    "run": "esy b dune exec ./sbu.exe",
+    "test": "esy b dune test",
+    "promote": "esy b dune promote",
+    "format": "dune build @fmt --auto-promote"
+  },
+  "dependencies": {
+    "@opam/ANSITerminal": "0.8.3",
+    "@opam/base": "*",
+    "@opam/cmdliner": "*",
+    "@opam/dune": "*",
+    "@opam/stdio": "*",
+    "ocaml": "*"
+  },
+  "devDependencies": {
+    "@opam/ocaml-lsp-server": "*"
+  }
+}

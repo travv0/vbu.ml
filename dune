@@ -1,0 +1,6 @@
+(executable
+ (name sbu)
+ (libraries base stdio ANSITerminal))
+
+(cram
+ (deps sbu.exe))
