@@ -1,20 +1,20 @@
   $ chmod +w config.json
 
-edit game
-  $ ../sbu.exe edit --config config.json test -p "/edited" -g none
+edit group
+  $ ../vbu.exe edit --config config.json test -p "/edited" -g none
   Name: test
-  Save path: /test/game/path -> /edited
-  Save glob: 
+  Path: /test/game/path -> /edited
+  Glob: 
   
 
-  $ ../sbu.exe edit --config config.json another -n new -p "/edited" -g ".*"
+  $ ../vbu.exe edit --config config.json another -n new -p "/edited" -g ".*"
   Name: another -> new
-  Save path: /another/path -> /edited
-  Save glob: save* -> .*
+  Path: /another/path -> /edited
+  Glob: save* -> .*
   
 
-  $ ../sbu.exe edit --config config.json new -g ""
+  $ ../vbu.exe edit --config config.json new -g ""
   Name: new
-  Save path: /edited
-  Save glob: .* -> 
+  Path: /edited
+  Glob: .* -> 
   

@@ -3,7 +3,7 @@
     "build": "dune build"
   },
   "scripts": {
-    "run": "esy b dune exec ./sbu.exe",
+    "run": "esy b dune exec ./vbu.exe",
     "test": "esy b dune test --sandbox copy",
     "promote": "esy b dune promote",
     "format": "dune build @fmt --auto-promote"

@@ -1,8 +1,8 @@
 {
-    "path": "./.sbu-backups",
+    "path": "./.vbu-backups",
     "frequency": 15,
     "num_to_keep": 3,
-    "games": [{
+    "groups": [{
         "name": "another",
         "path": "/another/path",
         "glob": "save*"

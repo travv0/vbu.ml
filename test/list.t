@@ -1,4 +1,4 @@
-list games
-  $ ../sbu.exe list --config config.json
+list groups
+  $ ../vbu.exe list --config config.json
   another
   test

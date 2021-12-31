@@ -1,10 +1,10 @@
 {
   "checksum": "14b8f2cc42ecb3a2ad2682a11b74e905",
-  "root": "sbu@link-dev:./package.json",
+  "root": "vbu@link-dev:./package.json",
   "node": {
-    "sbu@link-dev:./package.json": {
-      "id": "sbu@link-dev:./package.json",
-      "name": "sbu",
+    "vbu@link-dev:./package.json": {
+      "id": "vbu@link-dev:./package.json",
+      "name": "vbu",
       "version": "link-dev:./package.json",
       "source": {
         "type": "link-dev",

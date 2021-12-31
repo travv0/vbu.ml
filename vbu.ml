@@ -4,16 +4,8 @@ open Cmdliner
 open Printf
 open Stdio
 open Types
+open Util
 module Glob = Dune_glob.V1
-
-let dirname = Caml.Filename.dirname
-let basename = Caml.Filename.basename
-let ( ^/ ) = Caml.Filename.concat
-let file_exists = Caml.Sys.file_exists
-let is_directory = Caml.Sys.is_directory
-let realpath path = try Unix.realpath path with _ -> path
-let readdir = Caml.Sys.readdir
-let default_glob = "**"
 
 let note verbose s =
   if verbose then ANSITerminal.(printf [ blue ] "Note: %s\n" s)
@@ -21,16 +13,16 @@ let note verbose s =
 let warn s = ANSITerminal.(printf [ yellow ] "Warning: %s\n" s)
 let err s = ANSITerminal.(printf [ red ] "Error: %s\n" s)
 
-let warn_missing_games config (games : string list) =
+let warn_missing_groups config (groups : string list) =
   let warning_printed =
     List.fold
-      ~f:(fun warning_printed game ->
-        if not (List.exists ~f:String.(fun g -> g.name = game) config.games)
+      ~f:(fun warning_printed group ->
+        if not (List.exists ~f:String.(fun g -> g.name = group) config.groups)
         then (
-          warn (sprintf "No game named `%s'" game);
+          warn (sprintf "No group named `%s'" group);
           true)
         else warning_printed)
-      ~init:false games
+      ~init:false groups
   in
 
   if warning_printed then printf "\n"
@@ -43,17 +35,17 @@ let print_config_row label value new_value =
   | Some nv -> sprintf " -> %s" nv
   | None -> ""
 
-let print_game game new_name new_path new_glob =
-  print_config_row "Name" game.name new_name;
-  print_config_row "Save path" game.path new_path;
+let print_group group new_name new_path new_glob =
+  print_config_row "Name" group.name new_name;
+  print_config_row "Path" group.path new_path;
 
-  (match (game.glob, new_glob) with
+  (match (group.glob, new_glob) with
   | _, Some new_glob ->
-      print_config_row "Save glob"
-        (Option.value ~default:"" game.glob)
+      print_config_row "Glob"
+        (Option.value ~default:"" group.glob)
         (Some (Option.value ~default:"" new_glob))
   | Some _, None ->
-      print_config_row "Save glob" (Option.value ~default:"" game.glob) None
+      print_config_row "Glob" (Option.value ~default:"" group.glob) None
   | _ -> ());
 
   printf "\n"
@@ -162,13 +154,16 @@ let format_date t =
 
 let format_time t =
   let { Unix.tm_hour; tm_min; tm_sec; _ } = Unix.localtime t in
-  let hours = if tm_hour = 0 then 12 else tm_hour % 12 in
+  let hours =
+    let hour = tm_hour % 12 in
+    if hour = 0 then 12 else hour
+  in
   let suffix = if tm_hour > 11 then "PM" else "AM" in
   sprintf "%d:%02d:%02d %s" hours tm_min tm_sec suffix
 
 let rec backup_file
     config
-    game
+    group
     base_path
     glob
     from_path
@@ -225,18 +220,18 @@ let rec backup_file
     in
 
     if dir_exists from_path then
-      backup_files config game base_path glob from_path to_path verbose
+      backup_files config group base_path glob from_path to_path verbose
     else if glob_mathes () then backup_file' ()
     else (0, [])
   with e ->
     let warning =
-      sprintf "Unable to backup file %s for game %s:\n%s\n" to_path game
+      sprintf "Unable to backup file %s for group %s:\n%s\n" to_path group
         (Exn.to_string e)
     in
     warn warning;
     (1, [ warning ])
 
-and backup_files config game base_path glob from_path to_path verbose :
+and backup_files config group base_path glob from_path to_path verbose :
     int * string list =
   readdir from_path
   |> Array.fold
@@ -244,24 +239,27 @@ and backup_files config game base_path glob from_path to_path verbose :
          let file = basename path in
 
          let new_count, new_errs =
-           backup_file config game base_path glob (from_path ^/ file)
+           backup_file config group base_path glob (from_path ^/ file)
              (to_path ^/ file) verbose
          in
 
          (c + new_count, es @ new_errs))
        ~init:(0, [])
 
-let backup_game config game_name verbose =
+let backup_group config group_name verbose =
   let start_time = Unix.gettimeofday () in
 
-  let game = List.find ~f:String.(fun g -> g.name = game_name) config.games in
+  let group =
+    List.find ~f:String.(fun g -> g.name = group_name) config.groups
+  in
 
-  match game with
-  | Some game ->
-      if dir_exists game.path then (
+  match group with
+  | Some group ->
+      if dir_exists group.path then (
         let backed_up_count, warnings =
-          backup_files config game.name game.path game.glob game.path
-            (config.path ^/ game_name) verbose
+          backup_files config group.name group.path group.glob group.path
+            (config.path ^/ group_name)
+            verbose
         in
 
         (if backed_up_count > 0 then
@@ -276,34 +274,34 @@ let backup_game config game_name verbose =
             sprintf " with %d warning%s" warning_count
               (if warning_count = 1 then "" else "s")
            else "")
-           game_name
+           group_name
            Float.(now - start_time)
            (format_date now) (format_time now));
         warnings)
       else (
-        warn (sprintf "Path set for %s doesn't exist: %s" game_name game.path);
+        warn (sprintf "Path set for %s doesn't exist: %s" group_name group.path);
         [])
   | None ->
-      warn_missing_games config [ game_name ];
+      warn_missing_groups config [ group_name ];
       []
 
-let rec backup config (game_names : string list) (loop : bool) (verbose : bool)
+let rec backup config (group_names : string list) (loop : bool) (verbose : bool)
     =
-  let game_names =
-    match game_names with
-    | [] -> List.map ~f:(fun g -> g.name) config.games
+  let group_names =
+    match group_names with
+    | [] -> List.map ~f:(fun g -> g.name) config.groups
     | gns -> gns
   in
 
   let warnings =
-    game_names
+    group_names
     |> List.fold
-         ~f:(fun acc game ->
+         ~f:(fun acc group ->
            try
-             let warnings = backup_game config game verbose in
+             let warnings = backup_group config group verbose in
              acc @ warnings
            with e ->
-             err (sprintf "Error backing up %s: %s" game (Exn.to_string e));
+             err (sprintf "Error backing up %s: %s" group (Exn.to_string e));
              acc)
          ~init:[]
   in
@@ -325,59 +323,59 @@ let rec backup config (game_names : string list) (loop : bool) (verbose : bool)
 
   if loop then (
     Unix.sleep (config.frequency * 60);
-    backup config game_names loop verbose)
+    backup config group_names loop verbose)
   else None
 
-let valid_game_name_chars : (char, _) Set.t =
+let valid_group_name_chars : (char, _) Set.t =
   List.filter Char.all ~f:Char.is_alphanum @ [ '-'; '_' ]
   |> Set.of_list (module Char)
 
-let is_valid_game_name =
+let is_valid_group_name =
   String.for_all ~f:(fun c ->
-      Set.exists ~f:Char.(( = ) c) valid_game_name_chars)
+      Set.exists ~f:Char.(( = ) c) valid_group_name_chars)
 
-let add config (game : string) (path : string) (glob : string option) :
+let add config (group : string) (path : string) (glob : string option) :
     config option =
-  if List.exists ~f:String.(fun g -> g.name = game) config.games then (
-    err (sprintf "Game with the name %s already exists" game);
+  if List.exists ~f:String.(fun g -> g.name = group) config.groups then (
+    err (sprintf "Group with the name %s already exists" group);
 
     None)
-  else if not (is_valid_game_name game) then (
+  else if not (is_valid_group_name group) then (
     err
       (sprintf
          "Invalid characters in name `%s': only alphanumeric characters, \
           underscores, and hyphens are allowed"
-         game);
+         group);
     None)
   else
-    let new_game = { name = game; path = realpath path; glob } in
+    let new_group = { name = group; path = realpath path; glob } in
 
-    let new_games =
-      config.games @ [ new_game ]
+    let new_groups =
+      config.groups @ [ new_group ]
       |> List.sort ~compare:(fun g1 g2 -> String.compare g1.name g2.name)
     in
 
-    printf "Game added successfully:\n\n";
-    print_game new_game None None None;
-    Some { config with games = new_games }
+    printf "Group added successfully:\n\n";
+    print_group new_group None None None;
+    Some { config with groups = new_groups }
 
 let list config =
-  List.iter ~f:(fun g -> printf "%s\n" g.name) config.games;
+  List.iter ~f:(fun g -> printf "%s\n" g.name) config.groups;
   None
 
-let print_info config (game_names : string list) =
-  if List.length game_names > 0 then warn_missing_games config game_names;
+let print_info config (group_names : string list) =
+  if List.length group_names > 0 then warn_missing_groups config group_names;
 
-  let games =
-    match game_names with
-    | [] -> config.games
+  let groups =
+    match group_names with
+    | [] -> config.groups
     | gs ->
         List.filter
           ~f:(fun g -> List.exists ~f:String.(( = ) g.name) gs)
-          config.games
+          config.groups
   in
 
-  List.iter ~f:(fun g -> print_game g None None None) games;
+  List.iter ~f:(fun g -> print_group g None None None) groups;
   None
 
 let rec prompt_y_or_n prompt =
@@ -393,27 +391,27 @@ let rec prompt_y_or_n prompt =
       printf "Invalid input: entered `%s'.\n" s;
       prompt_y_or_n prompt
 
-let remove config (games : string list) (yes : bool) =
-  warn_missing_games config games;
+let remove config (groups : string list) (yes : bool) =
+  warn_missing_groups config groups;
 
-  let new_games =
-    List.filter_map config.games ~f:(fun game ->
+  let new_groups =
+    List.filter_map config.groups ~f:(fun group ->
         if
-          List.exists ~f:String.(( = ) game.name) games
+          List.exists ~f:String.(( = ) group.name) groups
           && (yes
              || prompt_y_or_n
-                  ("Are you sure you want to remove " ^ game.name ^ "?"))
+                  ("Are you sure you want to remove " ^ group.name ^ "?"))
         then (
-          printf "Removed %s\n" game.name;
+          printf "Removed %s\n" group.name;
           None)
-        else Some game)
+        else Some group)
   in
 
-  Some { config with games = new_games }
+  Some { config with groups = new_groups }
 
 let edit
     config
-    (game_name : string)
+    (group_name : string)
     (name : string option)
     (path : string option)
     (glob : string option) =
@@ -423,19 +421,19 @@ let edit
       None
   | _ -> (
       let split_list =
-        List.findi ~f:String.(fun _ g -> g.name = game_name) config.games
-        |> Option.map ~f:(fun (i, _) -> List.split_n config.games i)
+        List.findi ~f:String.(fun _ g -> g.name = group_name) config.groups
+        |> Option.map ~f:(fun (i, _) -> List.split_n config.groups i)
       in
 
       match split_list with
       | None ->
-          warn_missing_games config [ game_name ];
+          warn_missing_groups config [ group_name ];
           None
       | Some (_, []) ->
-          err "Couldn't find game in list";
+          err "Couldn't find group in list";
           None
-      | Some (front, game :: back) ->
-          let new_name = Option.value ~default:game.name name in
+      | Some (front, group :: back) ->
+          let new_name = Option.value ~default:group.name name in
 
           let new_glob =
             match glob with
@@ -444,16 +442,16 @@ let edit
             | glob -> Some glob
           in
 
-          let new_path = Option.value ~default:game.path path |> realpath in
+          let new_path = Option.value ~default:group.path path |> realpath in
 
-          let edited_game =
+          let edited_group =
             { name = new_name
             ; path = new_path
             ; glob = Option.value ~default:None new_glob
             }
           in
 
-          if not (is_valid_game_name new_name) then (
+          if not (is_valid_group_name new_name) then (
             err
               (sprintf
                  "Invalid characters in name `%s': only alphanumeric \
@@ -462,13 +460,13 @@ let edit
 
             None)
           else (
-            print_game game (Some new_name) (Some new_path) new_glob;
-            let backup_dir_exists = dir_exists (config.path ^/ game_name) in
+            print_group group (Some new_name) (Some new_path) new_glob;
+            let backup_dir_exists = dir_exists (config.path ^/ group_name) in
             if Option.is_some name && backup_dir_exists then (
-              warn "Game name changed, renaming backup directory...";
-              Unix.rename (config.path ^/ game_name) (config.path ^/ new_name));
+              warn "Group name changed, renaming backup directory...";
+              Unix.rename (config.path ^/ group_name) (config.path ^/ new_name));
 
-            Some { config with games = front @ [ edited_game ] @ back }))
+            Some { config with groups = front @ [ edited_group ] @ back }))
 
 let print_config config new_backup_dir new_backup_freq new_backups_to_keep =
   print_config_row "Backup path" config.path new_backup_dir;
@@ -509,10 +507,10 @@ let edit_config
         }
 
 let default_config =
-  { path = Util.home_dir ^/ ".sbu-backups"
+  { path = Util.home_dir ^/ ".vbu-backups"
   ; frequency = 15
   ; num_to_keep = 20
-  ; games = []
+  ; groups = []
   }
 
 let save_default_config path =
@@ -551,24 +549,24 @@ let backup_t =
   Term.(
     const backup
     $ load_config_t
-    $ BackupCmd.games
+    $ BackupCmd.groups
     $ BackupCmd.loop
     $ BackupCmd.verbose)
 
 let add_t =
-  Term.(const add $ load_config_t $ AddCmd.game $ AddCmd.path $ AddCmd.glob)
+  Term.(const add $ load_config_t $ AddCmd.group $ AddCmd.path $ AddCmd.glob)
 
 let list_t = Term.(const list $ load_config_t)
-let info_t = Term.(const print_info $ load_config_t $ InfoCmd.games)
+let info_t = Term.(const print_info $ load_config_t $ InfoCmd.groups)
 
 let remove_t =
-  Term.(const remove $ load_config_t $ RemoveCmd.games $ RemoveCmd.yes)
+  Term.(const remove $ load_config_t $ RemoveCmd.groups $ RemoveCmd.yes)
 
 let edit_t =
   Term.(
     const edit
     $ load_config_t
-    $ EditCmd.game
+    $ EditCmd.group
     $ EditCmd.name
     $ EditCmd.path
     $ EditCmd.glob)
@@ -581,8 +579,8 @@ let config_t =
     $ ConfigCmd.frequency
     $ ConfigCmd.keep)
 
-let sbu_info = Term.info "sbu" ~version:"v1.0.0"
-let sbu_t = Term.(ret (const (Fn.const (`Help (`Pager, None))) $ const 0))
+let vbu_info = Term.info "vbu" ~version:"v1.0.0"
+let vbu_t = Term.(ret (const (Fn.const (`Help (`Pager, None))) $ const 0))
 
 let () =
   let config_path =
@@ -591,7 +589,7 @@ let () =
     |> Option.value ~default:Util.default_config_path
   in
   let result =
-    Term.eval_choice (sbu_t, sbu_info)
+    Term.eval_choice (vbu_t, vbu_info)
       [ (backup_t, BackupCmd.info)
       ; (add_t, AddCmd.info)
       ; (list_t, ListCmd.info)

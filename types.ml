@@ -1,8 +1,8 @@
 open Base
 
-type game = { name : string; path : string; glob : string option }
+type group = { name : string; path : string; glob : string option }
 
-module Game = struct
+module Group = struct
   let to_json { name; path; glob } =
     `Assoc
       [ ("name", `String name)
@@ -22,15 +22,15 @@ module Game = struct
 end
 
 type config =
-  { path : string; frequency : int; num_to_keep : int; games : game list }
+  { path : string; frequency : int; num_to_keep : int; groups : group list }
 
 module Config = struct
-  let to_json { path; frequency; num_to_keep; games } =
+  let to_json { path; frequency; num_to_keep; groups } =
     `Assoc
       [ ("path", `String path)
       ; ("frequency", `Int frequency)
       ; ("num_to_keep", `Int num_to_keep)
-      ; ("games", `List (List.map games ~f:Game.to_json))
+      ; ("groups", `List (List.map groups ~f:Group.to_json))
       ]
 
   let of_json json =
@@ -38,6 +38,6 @@ module Config = struct
     { path = json |> member "path" |> to_string
     ; frequency = json |> member "frequency" |> to_int
     ; num_to_keep = json |> member "num_to_keep" |> to_int
-    ; games = json |> member "games" |> to_list |> List.map ~f:Game.of_json
+    ; groups = json |> member "groups" |> to_list |> List.map ~f:Group.of_json
     }
 end

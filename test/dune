@@ -1,5 +1,5 @@
 (cram
  (deps
-  ../sbu.exe
+  ../vbu.exe
   config.json
   (source_tree files)))

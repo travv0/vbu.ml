@@ -1,24 +1,24 @@
-list info for all games
-  $ ../sbu.exe info --config config.json
+list info for all groups
+  $ ../vbu.exe info --config config.json
   Name: another
-  Save path: /another/path
-  Save glob: save*
+  Path: /another/path
+  Glob: save*
   
   Name: test
-  Save path: /test/game/path
+  Path: /test/game/path
   
 
-list info for selected games
-  $ ../sbu.exe info --config config.json another
+list info for selected groups
+  $ ../vbu.exe info --config config.json another
   Name: another
-  Save path: /another/path
-  Save glob: save*
+  Path: /another/path
+  Glob: save*
   
 
-  $ ../sbu.exe info --config config.json another new
-  Warning: No game named `new'
+  $ ../vbu.exe info --config config.json another new
+  Warning: No group named `new'
   
   Name: another
-  Save path: /another/path
-  Save glob: save*
+  Path: /another/path
+  Glob: save*
   
