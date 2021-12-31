@@ -1,21 +1,7 @@
 {
-  "checksum": "e09c4dc00e513d5af7f8bae898d386af",
+  "checksum": "14b8f2cc42ecb3a2ad2682a11b74e905",
   "root": "sbu@link-dev:./package.json",
   "node": {
-    "unix@0.0.0@d41d8cd9": {
-      "id": "unix@0.0.0@d41d8cd9",
-      "name": "unix",
-      "version": "0.0.0",
-      "source": {
-        "type": "install",
-        "source": [
-          "archive:https://registry.npmjs.org/unix/-/unix-0.0.0.tgz#sha1:4c83e42ba7f6c15b2c6c95f41240647ba13cbefb"
-        ]
-      },
-      "overrides": [],
-      "dependencies": [],
-      "devDependencies": []
-    },
     "sbu@link-dev:./package.json": {
       "id": "sbu@link-dev:./package.json",
       "name": "sbu",
@@ -27,7 +13,7 @@
       },
       "overrides": [],
       "dependencies": [
-        "unix@0.0.0@d41d8cd9", "ocaml@4.13.1000@d41d8cd9",
+        "ocaml@4.13.1000@d41d8cd9", "@opam/yojson@opam:1.7.0@69d87312",
         "@opam/stdio@opam:v0.14.0@a5affb43",
         "@opam/dune-glob@opam:2.9.1@18067635",
         "@opam/dune@opam:2.9.1@1e504822",

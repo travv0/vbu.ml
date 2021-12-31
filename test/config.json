@@ -1,0 +1,1 @@
+{"path":"./.sbu-backups","frequency":15,"num_to_keep":20,"games":[{"name":"another","path":"/another/path","glob":"save*"},{"name":"test","path":"/test/game/path","glob":null}]}

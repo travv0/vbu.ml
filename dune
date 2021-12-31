@@ -1,6 +1,3 @@
 (executable
  (name sbu)
- (libraries base stdio ANSITerminal dune-glob unix))
-
-(cram
- (deps sbu.exe))
+ (libraries base stdio ANSITerminal dune-glob unix cmdliner yojson))

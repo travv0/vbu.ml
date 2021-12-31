@@ -1,0 +1,5 @@
+(cram
+ (deps
+  ../sbu.exe
+  config.json
+  (source_tree files)))

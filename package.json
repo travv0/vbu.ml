@@ -1,8 +1,10 @@
 {
-  "esy": { "build": "dune build" },
+  "esy": {
+    "build": "dune build"
+  },
   "scripts": {
     "run": "esy b dune exec ./sbu.exe",
-    "test": "esy b dune test",
+    "test": "esy b dune test --sandbox copy",
     "promote": "esy b dune promote",
     "format": "dune build @fmt --auto-promote"
   },
@@ -13,8 +15,10 @@
     "@opam/dune": "*",
     "@opam/dune-glob": "2.9.1",
     "@opam/stdio": "*",
-    "ocaml": "*",
-    "unix": "^0.0.0"
+    "@opam/yojson": "1.7.0",
+    "ocaml": "*"
   },
-  "devDependencies": { "@opam/ocaml-lsp-server": "*" }
+  "devDependencies": {
+    "@opam/ocaml-lsp-server": "*"
+  }
 }
