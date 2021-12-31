@@ -170,11 +170,8 @@ let rec backup_file
     to_path
     (verbose : bool) =
   try
-    let glob_mathes () =
-      let glob =
-        dirname from_path ^/ Option.value ~default:default_glob glob
-        |> Glob.of_string
-      in
+    let glob_matches () =
+      let glob = Option.value ~default:default_glob glob |> Glob.of_string in
       Glob.test glob from_path
     in
 
@@ -221,7 +218,7 @@ let rec backup_file
 
     if dir_exists from_path then
       backup_files config group base_path glob from_path to_path verbose
-    else if glob_mathes () then backup_file' ()
+    else if glob_matches () then backup_file' ()
     else (0, [])
   with e ->
     let warning =
