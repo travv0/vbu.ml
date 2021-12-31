@@ -71,7 +71,12 @@ let file_copy input_name output_name =
   in
   copy_loop ();
   Unix.close fd_in;
-  Unix.close fd_out
+  Unix.close fd_out;
+
+  let stats = Unix.lstat input_name in
+  let atime = stats.st_atime in
+  let mtime = stats.st_mtime in
+  Unix.utimes output_name atime mtime
 
 let dir_exists path_name = file_exists path_name && is_directory path_name
 
