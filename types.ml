@@ -22,14 +22,14 @@ module Game = struct
 end
 
 type config =
-  { path : string; frequency : int; numToKeep : int; games : game list }
+  { path : string; frequency : int; num_to_keep : int; games : game list }
 
 module Config = struct
-  let to_json { path; frequency; numToKeep; games } =
+  let to_json { path; frequency; num_to_keep; games } =
     `Assoc
       [ ("path", `String path)
       ; ("frequency", `Int frequency)
-      ; ("num_to_keep", `Int numToKeep)
+      ; ("num_to_keep", `Int num_to_keep)
       ; ("games", `List (List.map games ~f:Game.to_json))
       ]
 
@@ -37,7 +37,7 @@ module Config = struct
     let open Yojson.Basic.Util in
     { path = json |> member "path" |> to_string
     ; frequency = json |> member "frequency" |> to_int
-    ; numToKeep = json |> member "num_to_keep" |> to_int
+    ; num_to_keep = json |> member "num_to_keep" |> to_int
     ; games = json |> member "games" |> to_list |> List.map ~f:Game.of_json
     }
 end

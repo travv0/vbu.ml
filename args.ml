@@ -137,15 +137,15 @@ module ConfigCmd = struct
 end
 
 module Util = struct
-  let homeDir = Sys.getenv "HOME" |> Option.value ~default:"."
+  let home_dir = Sys.getenv "HOME" |> Option.value ~default:"."
 
-  let defaultConfigPath =
-    Caml.Filename.concat (Caml.Filename.concat homeDir ".sbu") "config.json"
+  let default_config_path =
+    Caml.Filename.concat (Caml.Filename.concat home_dir ".sbu") "config.json"
 
   let config_path =
     let doc = "Path to configuration file." in
     Arg.(
       value
-      & opt string defaultConfigPath
+      & opt string default_config_path
       & info [ "config" ] ~docv:"CONFIG_PATH" ~doc)
 end

@@ -11,8 +11,9 @@ let basename = Caml.Filename.basename
 let ( ^/ ) = Caml.Filename.concat
 let file_exists = Caml.Sys.file_exists
 let is_directory = Caml.Sys.is_directory
+let realpath path = try Unix.realpath path with _ -> path
 let readdir = Caml.Sys.readdir
-let defaultGlob = "**"
+let default_glob = "**"
 
 let note verbose s =
   if verbose then ANSITerminal.(printf [ blue ] "Note: %s\n" s)
@@ -20,39 +21,39 @@ let note verbose s =
 let warn s = ANSITerminal.(printf [ yellow ] "Warning: %s\n" s)
 let err s = ANSITerminal.(printf [ red ] "Error: %s\n" s)
 
-let warnMissingGames config (games : string list) =
-  let warningPrinted =
+let warn_missing_games config (games : string list) =
+  let warning_printed =
     List.fold
-      ~f:(fun warningPrinted game ->
+      ~f:(fun warning_printed game ->
         if not (List.exists ~f:String.(fun g -> g.name = game) config.games)
         then (
           warn (sprintf "No game named `%s'" game);
           true)
-        else warningPrinted)
+        else warning_printed)
       ~init:false games
   in
 
-  if warningPrinted then printf "\n"
+  if warning_printed then printf "\n"
 
-let printConfigRow label value newValue =
+let print_config_row label value new_value =
   printf "%s: %s%s\n" label value
   @@
-  match newValue with
+  match new_value with
   | Some nv when String.equal value nv -> ""
   | Some nv -> sprintf " -> %s" nv
   | None -> ""
 
-let printGame game newName newPath newGlob =
-  printConfigRow "Name" game.name newName;
-  printConfigRow "Save path" game.path newPath;
+let print_game game new_name new_path new_glob =
+  print_config_row "Name" game.name new_name;
+  print_config_row "Save path" game.path new_path;
 
-  (match (game.glob, newGlob) with
-  | _, Some newGlob ->
-      printConfigRow "Save glob"
+  (match (game.glob, new_glob) with
+  | _, Some new_glob ->
+      print_config_row "Save glob"
         (Option.value ~default:"" game.glob)
-        (Some (Option.value ~default:"" newGlob))
+        (Some (Option.value ~default:"" new_glob))
   | Some _, None ->
-      printConfigRow "Save glob" (Option.value ~default:"" game.glob) None
+      print_config_row "Save glob" (Option.value ~default:"" game.glob) None
   | _ -> ());
 
   printf "\n"
@@ -90,32 +91,32 @@ let rec mkdir_p path perms =
       mkdir_p (dirname path) perms;
       Unix.mkdir path perms
 
-let cleanupBackups config backupPath verbose =
-  if config.numToKeep > 0 then
-    let glob = backupPath ^ ".bak.????_??_??_??_??_??" |> Glob.of_string in
+let cleanup_backups config backup_path verbose =
+  if config.num_to_keep > 0 then
+    let glob = backup_path ^ ".bak.????_??_??_??_??_??" |> Glob.of_string in
 
-    let allFiles =
-      readdir (dirname backupPath)
-      |> Array.map ~f:(fun f -> dirname backupPath ^/ f)
+    let all_files =
+      readdir (dirname backup_path)
+      |> Array.map ~f:(fun f -> dirname backup_path ^/ f)
     in
 
     let files =
-      allFiles
+      all_files
       |> Array.filter ~f:(Glob.test glob)
-      |> Array.append [| backupPath |]
+      |> Array.append [| backup_path |]
     in
 
-    if Array.length files > config.numToKeep then
-      let sortedFiles =
+    if Array.length files > config.num_to_keep then
+      let sorted_files =
         files
         |> Array.to_list
         |> List.sort ~compare:(fun f1 f2 ->
                Float.compare (Unix.lstat f2).st_mtime (Unix.lstat f1).st_mtime)
       in
 
-      let filesToDelete = List.drop sortedFiles config.numToKeep in
+      let files_to_delete = List.drop sorted_files config.num_to_keep in
 
-      filesToDelete
+      files_to_delete
       |> List.iter ~f:(fun file ->
              note verbose (sprintf "Deleting %s" file);
              Unix.unlink file)
@@ -165,132 +166,141 @@ let format_time t =
   let suffix = if tm_hour > 11 then "PM" else "AM" in
   sprintf "%d:%02d:%02d %s" hours tm_min tm_sec suffix
 
-let rec backupFile config game basePath glob fromPath toPath (verbose : bool) =
+let rec backup_file
+    config
+    game
+    base_path
+    glob
+    from_path
+    to_path
+    (verbose : bool) =
   try
-    let globMatches () =
+    let glob_mathes () =
       let glob =
-        dirname fromPath ^/ Option.value ~default:defaultGlob glob
+        dirname from_path ^/ Option.value ~default:default_glob glob
         |> Glob.of_string
       in
-      Glob.test glob fromPath
+      Glob.test glob from_path
     in
 
-    let copyAndCleanup () =
-      mkdir_p (dirname toPath) 0o775;
-      printf "%s ==>\n\t%s\n" fromPath toPath;
-      file_copy fromPath toPath;
-      cleanupBackups config toPath verbose;
+    let copy_and_cleanup () =
+      mkdir_p (dirname to_path) 0o775;
+      printf "%s ==>\n\t%s\n" from_path to_path;
+      file_copy from_path to_path;
+      cleanup_backups config to_path verbose;
       (1, [])
     in
 
-    let backupFile' () =
-      let fromInfo = Unix.lstat fromPath in
+    let backup_file' () =
+      let from_info = Unix.lstat from_path in
 
-      let fromIsSymLink =
-        match fromInfo.st_kind with Unix.S_LNK -> true | _ -> false
+      let from_is_link =
+        match from_info.st_kind with Unix.S_LNK -> true | _ -> false
       in
 
-      if fromIsSymLink then (
+      if from_is_link then (
         note verbose
           (sprintf
              "%s appears to be a link to somewhere else in the filesystem. \
               Skipping..."
-             fromPath);
+             from_path);
 
         (0, []))
       else
-        let fromModTime = fromInfo.st_mtime in
+        let from_mod_time = from_info.st_mtime in
 
-        let toModTime =
-          if file_exists toPath then Some (Unix.lstat toPath).st_mtime else None
+        let to_mod_time =
+          if file_exists to_path then Some (Unix.lstat to_path).st_mtime
+          else None
         in
 
-        match toModTime with
-        | Some toModTime ->
-            if Int.of_float fromModTime <> Int.of_float toModTime then (
-              Unix.rename toPath
-                (toPath ^ ".bak." ^ format_filename_time toModTime);
-              copyAndCleanup ())
+        match to_mod_time with
+        | Some to_mod_time ->
+            if Int.of_float from_mod_time <> Int.of_float to_mod_time then (
+              Unix.rename to_path
+                (to_path ^ ".bak." ^ format_filename_time to_mod_time);
+              copy_and_cleanup ())
             else (0, [])
-        | None -> copyAndCleanup ()
+        | None -> copy_and_cleanup ()
     in
 
-    if dir_exists fromPath then
-      backupFiles config game basePath glob fromPath toPath verbose
-    else if globMatches () then backupFile' ()
+    if dir_exists from_path then
+      backup_files config game base_path glob from_path to_path verbose
+    else if glob_mathes () then backup_file' ()
     else (0, [])
   with e ->
     let warning =
-      sprintf "Unable to backup file %s for game %s:\n%s\n" toPath game
+      sprintf "Unable to backup file %s for game %s:\n%s\n" to_path game
         (Exn.to_string e)
     in
     warn warning;
     (1, [ warning ])
 
-and backupFiles config game basePath glob fromPath toPath verbose :
+and backup_files config game base_path glob from_path to_path verbose :
     int * string list =
-  readdir fromPath
+  readdir from_path
   |> Array.fold
        ~f:(fun (c, es) path ->
          let file = basename path in
 
-         let newCount, newErrs =
-           backupFile config game basePath glob (fromPath ^/ file)
-             (toPath ^/ file) verbose
+         let new_count, new_errs =
+           backup_file config game base_path glob (from_path ^/ file)
+             (to_path ^/ file) verbose
          in
 
-         (c + newCount, es @ newErrs))
+         (c + new_count, es @ new_errs))
        ~init:(0, [])
 
-let backupGame config gameName verbose =
-  let startTime = Unix.gettimeofday () in
+let backup_game config game_name verbose =
+  let start_time = Unix.gettimeofday () in
 
-  let game = List.find ~f:String.(fun g -> g.name = gameName) config.games in
+  let game = List.find ~f:String.(fun g -> g.name = game_name) config.games in
 
   match game with
   | Some game ->
       if dir_exists game.path then (
-        let backedUpCount, warnings =
-          backupFiles config game.name game.path game.glob game.path
-            (config.path ^/ gameName) verbose
+        let backed_up_count, warnings =
+          backup_files config game.name game.path game.glob game.path
+            (config.path ^/ game_name) verbose
         in
 
-        (if backedUpCount > 0 then
+        (if backed_up_count > 0 then
          let now = Unix.gettimeofday () in
-         let warningCount = List.length warnings in
+         let warning_count = List.length warnings in
 
          printf
            "\nFinished backing up %d file%s%s for %s in %fs on %s at %s\n\n"
-           backedUpCount
-           (if backedUpCount = 1 then "" else "s")
-           (if warningCount > 0 then
-            sprintf " with %d warning%s" warningCount
-              (if warningCount = 1 then "" else "s")
+           backed_up_count
+           (if backed_up_count = 1 then "" else "s")
+           (if warning_count > 0 then
+            sprintf " with %d warning%s" warning_count
+              (if warning_count = 1 then "" else "s")
            else "")
-           gameName
-           Float.(now - startTime)
+           game_name
+           Float.(now - start_time)
            (format_date now) (format_time now));
         warnings)
       else (
-        warn (sprintf "Path set for %s doesn't exist: %s" gameName game.path);
+        warn (sprintf "Path set for %s doesn't exist: %s" game_name game.path);
         [])
   | None ->
-      warnMissingGames config [ gameName ];
+      warn_missing_games config [ game_name ];
       []
 
-let rec backup config (gameNames : string list) (loop : bool) (verbose : bool) =
-  let gameNames' =
-    match gameNames with
+let rec backup config (game_names : string list) (loop : bool) (verbose : bool)
+    =
+  let game_names =
+    match game_names with
     | [] -> List.map ~f:(fun g -> g.name) config.games
     | gns -> gns
   in
 
   let warnings =
-    gameNames'
+    game_names
     |> List.fold
          ~f:(fun acc game ->
            try
-             let warnings = backupGame config game verbose in
+             let warnings = backup_game config game verbose in
              acc @ warnings
            with e ->
              err (sprintf "Error backing up %s: %s" game (Exn.to_string e));
@@ -298,12 +308,12 @@ let rec backup config (gameNames : string list) (loop : bool) (verbose : bool) =
          ~init:[]
   in
 
-  let warningCount = List.length warnings in
+  let warning_count = List.length warnings in
 
-  if warningCount > 0 then (
+  if warning_count > 0 then (
     ANSITerminal.(
-      printf [ yellow ] "\n%d warning%s occurred:" warningCount
-        (if warningCount = 1 then "" else "s");
+      printf [ yellow ] "\n%d warning%s occurred:" warning_count
+        (if warning_count = 1 then "" else "s");
 
       if verbose then (
         printf [ yellow ] "\n\n";
@@ -315,17 +325,16 @@ let rec backup config (gameNames : string list) (loop : bool) (verbose : bool) =
 
   if loop then (
     Unix.sleep (config.frequency * 60);
-    backup config gameNames loop verbose)
+    backup config game_names loop verbose)
   else None
 
-let validGameNameChars : (char, _) Set.t =
+let valid_game_name_chars : (char, _) Set.t =
   List.filter Char.all ~f:Char.is_alphanum @ [ '-'; '_' ]
   |> Set.of_list (module Char)
 
-let isValidGameName =
-  String.for_all ~f:(fun c -> Set.exists ~f:Char.(( = ) c) validGameNameChars)
-
-let realpath path = try Unix.realpath path with _ -> path
+let is_valid_game_name =
+  String.for_all ~f:(fun c ->
+      Set.exists ~f:Char.(( = ) c) valid_game_name_chars)
 
 let add config (game : string) (path : string) (glob : string option) :
     config option =
@@ -333,7 +342,7 @@ let add config (game : string) (path : string) (glob : string option) :
     err (sprintf "Game with the name %s already exists" game);
 
     None)
-  else if not (isValidGameName game) then (
+  else if not (is_valid_game_name game) then (
     err
       (sprintf
          "Invalid characters in name `%s': only alphanumeric characters, \
@@ -341,26 +350,26 @@ let add config (game : string) (path : string) (glob : string option) :
          game);
     None)
   else
-    let newGame = { name = game; path = realpath path; glob } in
+    let new_game = { name = game; path = realpath path; glob } in
 
-    let newGames =
-      config.games @ [ newGame ]
+    let new_games =
+      config.games @ [ new_game ]
       |> List.sort ~compare:(fun g1 g2 -> String.compare g1.name g2.name)
     in
 
     printf "Game added successfully:\n\n";
-    printGame newGame None None None;
-    Some { config with games = newGames }
+    print_game new_game None None None;
+    Some { config with games = new_games }
 
 let list config =
   List.iter ~f:(fun g -> printf "%s\n" g.name) config.games;
   None
 
-let print_info config (gameNames : string list) =
-  if List.length gameNames > 0 then warnMissingGames config gameNames;
+let print_info config (game_names : string list) =
+  if List.length game_names > 0 then warn_missing_games config game_names;
 
   let games =
-    match gameNames with
+    match game_names with
     | [] -> config.games
     | gs ->
         List.filter
@@ -368,10 +377,10 @@ let print_info config (gameNames : string list) =
           config.games
   in
 
-  List.iter ~f:(fun g -> printGame g None None None) games;
+  List.iter ~f:(fun g -> print_game g None None None) games;
   None
 
-let rec promptYorN prompt =
+let rec prompt_y_or_n prompt =
   printf "\n%s (y/N) " prompt;
   Out_channel.flush stdout;
 
@@ -382,160 +391,161 @@ let rec promptYorN prompt =
   | Some "n" | Some "N" | Some "" | None -> false
   | Some s ->
       printf "Invalid input: entered `%s'.\n" s;
-      promptYorN prompt
+      prompt_y_or_n prompt
 
 let remove config (games : string list) (yes : bool) =
-  warnMissingGames config games;
+  warn_missing_games config games;
 
-  let newGames =
+  let new_games =
     List.filter_map config.games ~f:(fun game ->
         if
           List.exists ~f:String.(( = ) game.name) games
           && (yes
-             || promptYorN ("Are you sure you want to remove " ^ game.name ^ "?")
-             )
+             || prompt_y_or_n
+                  ("Are you sure you want to remove " ^ game.name ^ "?"))
         then (
           printf "Removed %s\n" game.name;
           None)
         else Some game)
   in
 
-  Some { config with games = newGames }
+  Some { config with games = new_games }
 
 let edit
     config
-    (gameName : string)
-    (newName : string option)
-    (newPath : string option)
-    (newGlob : string option) =
-  match (newName, newPath, newGlob) with
+    (game_name : string)
+    (name : string option)
+    (path : string option)
+    (glob : string option) =
+  match (name, path, glob) with
   | None, None, None ->
       err "One or more of --name, --path, or --glob must be provided.";
       None
   | _ -> (
-      let splitList =
-        List.findi ~f:String.(fun _ g -> g.name = gameName) config.games
+      let split_list =
+        List.findi ~f:String.(fun _ g -> g.name = game_name) config.games
         |> Option.map ~f:(fun (i, _) -> List.split_n config.games i)
       in
 
-      match splitList with
+      match split_list with
       | None ->
-          warnMissingGames config [ gameName ];
+          warn_missing_games config [ game_name ];
           None
       | Some (_, []) ->
           err "Couldn't find game in list";
           None
       | Some (front, game :: back) ->
-          let newName' = Option.value ~default:game.name newName in
+          let new_name = Option.value ~default:game.name name in
 
-          let newGlob' =
-            match newGlob with
+          let new_glob =
+            match glob with
             | Some "none" | Some "" -> Some None
             | None -> None
             | glob -> Some glob
           in
 
-          let newPath' = Option.value ~default:game.path newPath |> realpath in
+          let new_path = Option.value ~default:game.path path |> realpath in
 
-          let editedGame =
-            { name = newName'
-            ; path = newPath'
-            ; glob = Option.value ~default:None newGlob'
+          let edited_game =
+            { name = new_name
+            ; path = new_path
+            ; glob = Option.value ~default:None new_glob
             }
           in
 
-          if not (isValidGameName newName') then (
+          if not (is_valid_game_name new_name) then (
             err
               (sprintf
                  "Invalid characters in name `%s': only alphanumeric \
                   characters, underscores, and hyphens are allowed"
-                 newName');
+                 new_name);
 
             None)
           else (
-            printGame game (Some newName') (Some newPath') newGlob';
-
-            let backupDirExists = dir_exists (config.path ^/ gameName) in
-
-            if Option.is_some newName && backupDirExists then (
+            print_game game (Some new_name) (Some new_path) new_glob;
+            let backup_dir_exists = dir_exists (config.path ^/ game_name) in
+            if Option.is_some name && backup_dir_exists then (
               warn "Game name changed, renaming backup directory...";
+              Unix.rename (config.path ^/ game_name) (config.path ^/ new_name));
 
-              Unix.rename (config.path ^/ gameName) (config.path ^/ newName'));
+            Some { config with games = front @ [ edited_game ] @ back }))
 
-            Some { config with games = front @ [ editedGame ] @ back }))
-
-let printConfig config newBackupDir newBackupFreq newBackupsToKeep =
-  printConfigRow "Backup path" config.path newBackupDir;
-  printConfigRow "Backup frequency (in minutes)"
+let print_config config new_backup_dir new_backup_freq new_backups_to_keep =
+  print_config_row "Backup path" config.path new_backup_dir;
+  print_config_row "Backup frequency (in minutes)"
     (Int.to_string config.frequency)
-    (Option.map ~f:Int.to_string newBackupFreq);
-  printConfigRow "Number of backups to keep"
-    (Int.to_string config.numToKeep)
-    (Option.map ~f:Int.to_string newBackupsToKeep);
+    (Option.map ~f:Int.to_string new_backup_freq);
+  print_config_row "Number of backups to keep"
+    (Int.to_string config.num_to_keep)
+    (Option.map ~f:Int.to_string new_backups_to_keep);
   printf "\n"
 
-let editConfig
+let edit_config
     config
-    (backupDir : string option)
-    (backupFreq : int option)
-    (backupsToKeep : int option) =
-  let newBackupDir = Option.value ~default:config.path backupDir |> realpath in
+    (backup_dir : string option)
+    (backup_freq : int option)
+    (backups_to_keep : int option) =
+  let new_backup_dir =
+    Option.value ~default:config.path backup_dir |> realpath
+  in
 
-  let newBackupFreq = Option.value ~default:config.frequency backupFreq in
+  let new_backup_freq = Option.value ~default:config.frequency backup_freq in
 
-  let newBackupsToKeep = Option.value ~default:config.numToKeep backupsToKeep in
+  let new_backups_to_keep =
+    Option.value ~default:config.num_to_keep backups_to_keep
+  in
 
-  printConfig config (Some newBackupDir) (Some newBackupFreq)
-    (Some newBackupsToKeep);
+  print_config config (Some new_backup_dir) (Some new_backup_freq)
+    (Some new_backups_to_keep);
 
-  match (backupDir, backupFreq, backupsToKeep) with
+  match (backup_dir, backup_freq, backups_to_keep) with
   | None, None, None -> None
   | _ ->
       Some
         { config with
-          path = newBackupDir
-        ; frequency = newBackupFreq
-        ; numToKeep = newBackupsToKeep
+          path = new_backup_dir
+        ; frequency = new_backup_freq
+        ; num_to_keep = new_backups_to_keep
         }
 
-let defaultConfig =
-  { path = Args.Util.homeDir ^/ ".sbu-backups"
+let default_config =
+  { path = Util.home_dir ^/ ".sbu-backups"
   ; frequency = 15
-  ; numToKeep = 20
+  ; num_to_keep = 20
   ; games = []
   }
 
-let saveDefaultConfig path =
+let save_default_config path =
   printf
     "Creating new config file at `%s'.\n\
      Use the `config' command to update default values, which are:\n\n\
      Backup path: %s\n\
      Backup frequency (in minutes): %d\n\
      Number of backups to keep: %d\n\n"
-    path defaultConfig.path defaultConfig.frequency defaultConfig.numToKeep;
+    path default_config.path default_config.frequency default_config.num_to_keep;
 
   let dir = dirname path in
   mkdir_p dir 0o775;
-  Yojson.to_file path (Config.to_json defaultConfig)
+  Yojson.to_file path (Config.to_json default_config)
 
-let loadConfig configPath =
-  if not (file_exists configPath) then saveDefaultConfig configPath;
+let load_config config_path =
+  if not (file_exists config_path) then save_default_config config_path;
 
-  try Yojson.Basic.from_file configPath |> Config.of_json
+  try Yojson.Basic.from_file config_path |> Config.of_json
   with e ->
     warn
       (sprintf
          "Couldn't load config: %s\n\
           Attempting to save default config to '%s' after backing up existing \
           config.\n"
-         (Exn.to_string e) configPath);
+         (Exn.to_string e) config_path);
 
-    if file_exists configPath then file_copy configPath (configPath ^ ".bak");
+    if file_exists config_path then file_copy config_path (config_path ^ ".bak");
 
-    saveDefaultConfig configPath;
-    defaultConfig
+    save_default_config config_path;
+    default_config
 
-let load_config_t = Term.(const loadConfig $ Util.config_path)
+let load_config_t = Term.(const load_config $ Util.config_path)
 
 let backup_t =
   Term.(
@@ -565,7 +575,7 @@ let edit_t =
 
 let config_t =
   Term.(
-    const editConfig
+    const edit_config
     $ load_config_t
     $ ConfigCmd.path
     $ ConfigCmd.frequency
@@ -578,7 +588,7 @@ let () =
   let config_path =
     Term.eval_peek_opts Util.config_path
     |> fst
-    |> Option.value ~default:Util.defaultConfigPath
+    |> Option.value ~default:Util.default_config_path
   in
   let result =
     Term.eval_choice (sbu_t, sbu_info)
