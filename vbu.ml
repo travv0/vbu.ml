@@ -178,6 +178,7 @@ let rec backup_file
     let copy_and_cleanup () =
       mkdir_p (dirname to_path) 0o775;
       printf "%s ==>\n\t%s\n" from_path to_path;
+      Out_channel.flush stdout;
       file_copy from_path to_path;
       cleanup_backups config to_path verbose;
       (1, [])
