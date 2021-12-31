@@ -1,5 +1,7 @@
 # vbu
 
+[![esy CI](https://github.com/travv0/vbu/actions/workflows/esy.yml/badge.svg)](https://github.com/travv0/vbu/actions/workflows/esy.yml)
+
 Small utility to create versioned backups of files in a directory that match a glob. I originally wrote it to backup video game saves to Google Drive that didn't have cloud save support.
 
 Start by setting the location you want your backups to be stored in:
