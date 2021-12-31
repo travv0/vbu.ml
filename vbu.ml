@@ -172,7 +172,7 @@ let rec backup_file
   try
     let glob_matches () =
       let glob = Option.value ~default:default_glob glob |> Glob.of_string in
-      Glob.test glob from_path
+      Glob.test glob (basename from_path)
     in
 
     let copy_and_cleanup () =
