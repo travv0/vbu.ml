@@ -12,8 +12,11 @@ let ( ^/ ) = Caml.Filename.concat
 let file_exists = Caml.Sys.file_exists
 let is_directory = Caml.Sys.is_directory
 let readdir = Caml.Sys.readdir
-let defaultGlob = "*/*"
-let note s = ANSITerminal.(printf [ blue ] "Note: %s\n" s)
+let defaultGlob = "**"
+
+let note verbose s =
+  if verbose then ANSITerminal.(printf [ blue ] "Note: %s\n" s)
+
 let warn s = ANSITerminal.(printf [ yellow ] "Warning: %s\n" s)
 let err s = ANSITerminal.(printf [ red ] "Error: %s\n" s)
 
@@ -89,13 +92,12 @@ let rec mkdir_p path perms =
 
 let cleanupBackups config backupPath verbose =
   if config.numToKeep > 0 then
-    let glob =
-      backupPath
-      ^ ".bak.[0-9][0-9][0-9][0-9]_[0-9][0-9]_[0-9][0-9]_[0-9][0-9]_[0-9][0-9]_[0-9][0-9]"
-      |> Glob.of_string
-    in
+    let glob = backupPath ^ ".bak.????_??_??_??_??_??" |> Glob.of_string in
 
-    let allFiles = readdir (dirname backupPath) in
+    let allFiles =
+      readdir (dirname backupPath)
+      |> Array.map ~f:(fun f -> dirname backupPath ^/ f)
+    in
 
     let files =
       allFiles
@@ -115,7 +117,7 @@ let cleanupBackups config backupPath verbose =
 
       filesToDelete
       |> List.iter ~f:(fun file ->
-             if verbose then note (sprintf "Deleting %s" file);
+             note verbose (sprintf "Deleting %s" file);
              Unix.unlink file)
 
 let format_filename_time t =
@@ -167,9 +169,9 @@ let rec backupFile config game basePath glob fromPath toPath (verbose : bool) =
   try
     let globMatches () =
       let glob =
-        basePath ^/ Option.value ~default:defaultGlob glob |> Glob.of_string
+        dirname fromPath ^/ Option.value ~default:defaultGlob glob
+        |> Glob.of_string
       in
-
       Glob.test glob fromPath
     in
 
@@ -189,12 +191,11 @@ let rec backupFile config game basePath glob fromPath toPath (verbose : bool) =
       in
 
       if fromIsSymLink then (
-        if verbose then
-          note
-            (sprintf
-               "%s appears to be a link to somewhere else in the filesystem. \
-                Skipping..."
-               fromPath);
+        note verbose
+          (sprintf
+             "%s appears to be a link to somewhere else in the filesystem. \
+              Skipping..."
+             fromPath);
 
         (0, []))
       else
@@ -206,7 +207,7 @@ let rec backupFile config game basePath glob fromPath toPath (verbose : bool) =
 
         match toModTime with
         | Some toModTime ->
-            if Float.(fromModTime <> toModTime) then (
+            if Int.of_float fromModTime <> Int.of_float toModTime then (
               Unix.rename toPath
                 (toPath ^ ".bak." ^ format_filename_time toModTime);
               copyAndCleanup ())
@@ -457,7 +458,7 @@ let edit
             let backupDirExists = dir_exists (config.path ^/ gameName) in
 
             if Option.is_some newName && backupDirExists then (
-              note "Game name changed, renaming backup directory...";
+              warn "Game name changed, renaming backup directory...";
 
               Unix.rename (config.path ^/ gameName) (config.path ^/ newName'));
 
