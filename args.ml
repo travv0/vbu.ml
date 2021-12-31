@@ -1,17 +1,14 @@
 open Base
 open Cmdliner
 open Printf
+open Util.FileSystem
 
-module Util = struct
-  include Util
-
-  let config_path =
-    let doc = "Path to configuration file." in
-    Arg.(
-      value
-      & opt string default_config_path
-      & info [ "config" ] ~docv:"CONFIG_PATH" ~doc)
-end
+let config_path =
+  let doc = "Path to configuration file." in
+  Arg.(
+    value
+    & opt string default_config_path
+    & info [ "config" ] ~docv:"CONFIG_PATH" ~doc)
 
 module BackupCmd = struct
   let info = Term.info "backup" ~doc:"Backup your files."
@@ -51,7 +48,7 @@ module AddCmd = struct
         "File glob for added group's files. Only files matching this pattern \
          will be backed up. The default is %s which will recursively back up \
          all files in PATH."
-        Util.default_glob
+        default_glob
     in
     Arg.(
       value & opt (some string) None & info [ "g"; "glob" ] ~docv:"GLOB" ~doc)
@@ -114,7 +111,7 @@ module EditCmd = struct
         "Set group's file glob to NEW_GLOB. Setting this to an empty string or \
          \"none\" implies the glob %s which will recursively back up all \
          files."
-        Util.default_glob
+        default_glob
     in
     Arg.(
       value

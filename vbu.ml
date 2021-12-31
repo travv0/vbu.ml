@@ -4,14 +4,10 @@ open Cmdliner
 open Printf
 open Stdio
 open Types
-open Util
+open Util.Console
+open Util.DateTime
+open Util.FileSystem
 module Glob = Dune_glob.V1
-
-let note verbose s =
-  if verbose then ANSITerminal.(printf [ blue ] "Note: %s\n" s)
-
-let warn s = ANSITerminal.(printf [ yellow ] "Warning: %s\n" s)
-let err s = ANSITerminal.(printf [ red ] "Error: %s\n" s)
 
 let warn_missing_groups config (groups : string list) =
   let warning_printed =
@@ -26,62 +22,6 @@ let warn_missing_groups config (groups : string list) =
   in
 
   if warning_printed then printf "\n"
-
-let print_config_row label value new_value =
-  printf "%s: %s%s\n" label value
-  @@
-  match new_value with
-  | Some nv when String.equal value nv -> ""
-  | Some nv -> sprintf " -> %s" nv
-  | None -> ""
-
-let print_group group new_name new_path new_glob =
-  print_config_row "Name" group.name new_name;
-  print_config_row "Path" group.path new_path;
-
-  (match (group.glob, new_glob) with
-  | _, Some new_glob ->
-      print_config_row "Glob"
-        (Option.value ~default:"" group.glob)
-        (Some (Option.value ~default:"" new_glob))
-  | Some _, None ->
-      print_config_row "Glob" (Option.value ~default:"" group.glob) None
-  | _ -> ());
-
-  printf "\n"
-
-let buffer_size = 8192
-let buffer = Bytes.create buffer_size
-
-let file_copy input_name output_name =
-  let fd_in = Unix.(openfile input_name [ O_RDONLY ] 0) in
-  let fd_out =
-    Unix.(openfile output_name [ O_WRONLY; O_CREAT; O_TRUNC ] 0o666)
-  in
-  let rec copy_loop () =
-    match Unix.read fd_in buffer 0 buffer_size with
-    | 0 -> ()
-    | r ->
-        Unix.write fd_out buffer 0 r |> ignore;
-        copy_loop ()
-  in
-  copy_loop ();
-  Unix.close fd_in;
-  Unix.close fd_out;
-
-  let stats = Unix.lstat input_name in
-  let atime = stats.st_atime in
-  let mtime = stats.st_mtime in
-  Unix.utimes output_name atime mtime
-
-let dir_exists path_name = file_exists path_name && is_directory path_name
-
-let rec mkdir_p path perms =
-  try Unix.mkdir path perms with
-  | Unix.Unix_error (Unix.EEXIST, _, _) -> ()
-  | Unix.Unix_error (Unix.ENOENT, _, _) ->
-      mkdir_p (dirname path) perms;
-      Unix.mkdir path perms
 
 let cleanup_backups config backup_path verbose =
   if config.num_to_keep > 0 then
@@ -112,54 +52,6 @@ let cleanup_backups config backup_path verbose =
       |> List.iter ~f:(fun file ->
              note verbose (sprintf "Deleting %s" file);
              Unix.unlink file)
-
-let format_filename_time t =
-  let { Unix.tm_year; tm_mon; tm_mday; tm_hour; tm_min; tm_sec; _ } =
-    Unix.gmtime t
-  in
-  sprintf "%04d_%02d_%02d_%02d_%02d_%02d" (tm_year + 1900) (tm_mon + 1) tm_mday
-    tm_hour tm_min tm_sec
-
-let format_month = function
-  | 0 -> "January"
-  | 1 -> "February"
-  | 2 -> "March"
-  | 3 -> "April"
-  | 4 -> "May"
-  | 5 -> "June"
-  | 6 -> "July"
-  | 7 -> "August"
-  | 8 -> "September"
-  | 9 -> "October"
-  | 10 -> "November"
-  | 11 -> "December"
-  | m -> failwithf "format_month: bad month %d" m ()
-
-let format_weekday = function
-  | 0 -> "Sunday"
-  | 1 -> "Monday"
-  | 2 -> "Tuesday"
-  | 3 -> "Wednesday"
-  | 4 -> "Thursday"
-  | 5 -> "Friday"
-  | 6 -> "Saturday"
-  | m -> failwithf "format_weekday: bad weekday %d" m ()
-
-let format_date t =
-  let { Unix.tm_year; tm_mon; tm_mday; tm_wday; _ } = Unix.localtime t in
-  let month = format_month tm_mon in
-  let weekday = format_weekday tm_wday in
-  let year = tm_year + 1900 in
-  sprintf "%s, %s %d, %d" weekday month tm_mday year
-
-let format_time t =
-  let { Unix.tm_hour; tm_min; tm_sec; _ } = Unix.localtime t in
-  let hours =
-    let hour = tm_hour % 12 in
-    if hour = 0 then 12 else hour
-  in
-  let suffix = if tm_hour > 11 then "PM" else "AM" in
-  sprintf "%d:%02d:%02d %s" hours tm_min tm_sec suffix
 
 let rec backup_file
     config
@@ -354,7 +246,7 @@ let add config (group : string) (path : string) (glob : string option) :
     in
 
     printf "Group added successfully:\n\n";
-    print_group new_group None None None;
+    Group.print new_group;
     Some { config with groups = new_groups }
 
 let list config =
@@ -373,21 +265,8 @@ let print_info config (group_names : string list) =
           config.groups
   in
 
-  List.iter ~f:(fun g -> print_group g None None None) groups;
+  List.iter ~f:Group.print groups;
   None
-
-let rec prompt_y_or_n prompt =
-  printf "\n%s (y/N) " prompt;
-  Out_channel.flush stdout;
-
-  match
-    In_channel.input_line ~fix_win_eol:true stdin |> Option.map ~f:String.strip
-  with
-  | Some "y" | Some "Y" -> true
-  | Some "n" | Some "N" | Some "" | None -> false
-  | Some s ->
-      printf "Invalid input: entered `%s'.\n" s;
-      prompt_y_or_n prompt
 
 let remove config (groups : string list) (yes : bool) =
   warn_missing_groups config groups;
@@ -458,23 +337,13 @@ let edit
 
             None)
           else (
-            print_group group (Some new_name) (Some new_path) new_glob;
+            Group.print group ~new_name ~new_path ?new_glob;
             let backup_dir_exists = dir_exists (config.path ^/ group_name) in
             if Option.is_some name && backup_dir_exists then (
               warn "Group name changed, renaming backup directory...";
               Unix.rename (config.path ^/ group_name) (config.path ^/ new_name));
 
             Some { config with groups = front @ [ edited_group ] @ back }))
-
-let print_config config new_backup_dir new_backup_freq new_backups_to_keep =
-  print_config_row "Backup path" config.path new_backup_dir;
-  print_config_row "Backup frequency (in minutes)"
-    (Int.to_string config.frequency)
-    (Option.map ~f:Int.to_string new_backup_freq);
-  print_config_row "Number of backups to keep"
-    (Int.to_string config.num_to_keep)
-    (Option.map ~f:Int.to_string new_backups_to_keep);
-  printf "\n"
 
 let edit_config
     config
@@ -491,8 +360,7 @@ let edit_config
     Option.value ~default:config.num_to_keep backups_to_keep
   in
 
-  print_config config (Some new_backup_dir) (Some new_backup_freq)
-    (Some new_backups_to_keep);
+  Config.print config ~new_backup_dir ~new_backup_freq ~new_backups_to_keep;
 
   match (backup_dir, backup_freq, backups_to_keep) with
   | None, None, None -> None
@@ -504,44 +372,7 @@ let edit_config
         ; num_to_keep = new_backups_to_keep
         }
 
-let default_config =
-  { path = Util.home_dir ^/ ".vbu-backups"
-  ; frequency = 15
-  ; num_to_keep = 20
-  ; groups = []
-  }
-
-let save_default_config path =
-  printf
-    "Creating new config file at `%s'.\n\
-     Use the `config' command to update default values, which are:\n\n\
-     Backup path: %s\n\
-     Backup frequency (in minutes): %d\n\
-     Number of backups to keep: %d\n\n"
-    path default_config.path default_config.frequency default_config.num_to_keep;
-
-  let dir = dirname path in
-  mkdir_p dir 0o775;
-  Yojson.to_file path (Config.to_json default_config)
-
-let load_config config_path =
-  if not (file_exists config_path) then save_default_config config_path;
-
-  try Yojson.Basic.from_file config_path |> Config.of_json
-  with e ->
-    warn
-      (sprintf
-         "Couldn't load config: %s\n\
-          Attempting to save default config to '%s' after backing up existing \
-          config.\n"
-         (Exn.to_string e) config_path);
-
-    if file_exists config_path then file_copy config_path (config_path ^ ".bak");
-
-    save_default_config config_path;
-    default_config
-
-let load_config_t = Term.(const load_config $ Util.config_path)
+let load_config_t = Term.(const Config.load $ config_path)
 
 let backup_t =
   Term.(
@@ -577,14 +408,14 @@ let config_t =
     $ ConfigCmd.frequency
     $ ConfigCmd.keep)
 
-let vbu_info = Term.info "vbu" ~version:"v1.0.0"
+let vbu_info = Term.info "vbu" ~version:"v1.1.0"
 let vbu_t = Term.(ret (const (Fn.const (`Help (`Pager, None))) $ const 0))
 
 let () =
   let config_path =
-    Term.eval_peek_opts Util.config_path
+    Term.eval_peek_opts config_path
     |> fst
-    |> Option.value ~default:Util.default_config_path
+    |> Option.value ~default:default_config_path
   in
   let result =
     Term.eval_choice (vbu_t, vbu_info)
@@ -598,8 +429,5 @@ let () =
       ]
   in
   match result with
-  | `Ok (Some new_config) ->
-      mkdir_p (dirname config_path) 0o775;
-
-      Yojson.Basic.to_file config_path (Config.to_json new_config)
+  | `Ok (Some new_config) -> Config.save new_config config_path
   | r -> Term.exit r
