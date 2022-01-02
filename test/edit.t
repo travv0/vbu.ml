@@ -7,6 +7,11 @@ edit group
   Glob: **
   
 
+  $ ../vbu.exe edit --config config.json test -p "/edited"
+  Name: test
+  Path: /edited
+  
+
   $ ../vbu.exe edit --config config.json another -n new -p "/edited" -g ".*"
   Name: another -> new
   Path: /another/path -> /edited

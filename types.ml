@@ -33,7 +33,12 @@ module Group = struct
   let print ?new_name ?new_path ?new_glob group =
     print_config_row "Name" ~value:group.name ?new_value:new_name;
     print_config_row "Path" ~value:group.path ?new_value:new_path;
-    print_config_row "Glob" ~value:group.glob ?new_value:new_glob;
+
+    (match (String.equal group.glob default_glob, new_glob) with
+    | _, Some new_glob ->
+        print_config_row "Glob" ~value:group.glob ~new_value:new_glob
+    | false, None -> print_config_row "Glob" ~value:group.glob
+    | _ -> ());
 
     printf "\n"
 end

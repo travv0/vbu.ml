@@ -316,15 +316,17 @@ let edit
 
           let new_glob =
             match glob with
-            | Some "none" | Some "" -> default_glob
-            | Some glob -> glob
-            | None -> group.glob
+            | Some "none" | Some "" -> Some default_glob
+            | glob -> glob
           in
 
           let new_path = Option.value ~default:group.path path |> realpath in
 
           let edited_group =
-            { name = new_name; path = new_path; glob = new_glob }
+            { name = new_name
+            ; path = new_path
+            ; glob = new_glob |> Option.value ~default:group.glob
+            }
           in
 
           if not (is_valid_group_name new_name) then (
@@ -336,7 +338,7 @@ let edit
 
             None)
           else (
-            Group.print group ~new_name ~new_path ~new_glob;
+            Group.print group ~new_name ~new_path ?new_glob;
             let backup_dir_exists = dir_exists (config.path ^/ group_name) in
             if Option.is_some name && backup_dir_exists then (
               warn "Group name changed, renaming backup directory...";
@@ -407,7 +409,7 @@ let config_t =
     $ ConfigCmd.frequency
     $ ConfigCmd.keep)
 
-let vbu_info = Term.info "vbu" ~version:"v1.2.0"
+let vbu_info = Term.info "vbu" ~version:"v1.2.1"
 let vbu_t = Term.(ret (const (Fn.const (`Help (`Pager, None))) $ const 0))
 
 let () =
