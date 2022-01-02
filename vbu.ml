@@ -63,8 +63,7 @@ let rec backup_file
     (verbose : bool) =
   try
     let glob_matches () =
-      let glob = Option.value ~default:default_glob glob |> Glob.of_string in
-      Glob.test glob (basename from_path)
+      Glob.test (Glob.of_string glob) (basename from_path)
     in
 
     let copy_and_cleanup () =
@@ -224,8 +223,8 @@ let is_valid_group_name =
   String.for_all ~f:(fun c ->
       Set.exists ~f:Char.(( = ) c) valid_group_name_chars)
 
-let add config (group : string) (path : string) (glob : string option) :
-    config option =
+let add config (group : string) (path : string) (glob : string) : config option
+    =
   if List.exists ~f:String.(fun g -> g.name = group) config.groups then (
     err (sprintf "Group with the name %s already exists" group);
 
@@ -238,7 +237,10 @@ let add config (group : string) (path : string) (glob : string option) :
          group);
     None)
   else
-    let new_group = { name = group; path = realpath path; glob } in
+    let new_glob =
+      match glob with "none" | "" -> default_glob | glob -> glob
+    in
+    let new_group = { name = group; path = realpath path; glob = new_glob } in
 
     let new_groups =
       config.groups @ [ new_group ]
@@ -314,18 +316,15 @@ let edit
 
           let new_glob =
             match glob with
-            | Some "none" | Some "" -> Some None
-            | None -> None
-            | glob -> Some glob
+            | Some "none" | Some "" -> default_glob
+            | Some glob -> glob
+            | None -> group.glob
           in
 
           let new_path = Option.value ~default:group.path path |> realpath in
 
           let edited_group =
-            { name = new_name
-            ; path = new_path
-            ; glob = Option.value ~default:None new_glob
-            }
+            { name = new_name; path = new_path; glob = new_glob }
           in
 
           if not (is_valid_group_name new_name) then (
@@ -337,7 +336,7 @@ let edit
 
             None)
           else (
-            Group.print group ~new_name ~new_path ?new_glob;
+            Group.print group ~new_name ~new_path ~new_glob;
             let backup_dir_exists = dir_exists (config.path ^/ group_name) in
             if Option.is_some name && backup_dir_exists then (
               warn "Group name changed, renaming backup directory...";
@@ -372,7 +371,7 @@ let edit_config
         ; num_to_keep = new_backups_to_keep
         }
 
-let load_config_t = Term.(const Config.load $ config_path)
+let load_config_t = Term.(const Config.load $ config_path_t)
 
 let backup_t =
   Term.(
@@ -408,12 +407,12 @@ let config_t =
     $ ConfigCmd.frequency
     $ ConfigCmd.keep)
 
-let vbu_info = Term.info "vbu" ~version:"v1.1.0"
+let vbu_info = Term.info "vbu" ~version:"v1.2.0"
 let vbu_t = Term.(ret (const (Fn.const (`Help (`Pager, None))) $ const 0))
 
 let () =
   let config_path =
-    Term.eval_peek_opts config_path
+    Term.eval_peek_opts config_path_t
     |> fst
     |> Option.value ~default:default_config_path
   in

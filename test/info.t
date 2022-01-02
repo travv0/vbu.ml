@@ -6,6 +6,7 @@ list info for all groups
   
   Name: test
   Path: /test/game/path
+  Glob: **
   
 
 list info for selected groups

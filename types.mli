@@ -1,12 +1,8 @@
-type group = { name : string; path : string; glob : string option }
+type group = { name : string; path : string; glob : string }
 
 module Group : sig
   val print :
-       ?new_name:string
-    -> ?new_path:string
-    -> ?new_glob:string option
-    -> group
-    -> unit
+    ?new_name:string -> ?new_path:string -> ?new_glob:string -> group -> unit
 end
 
 type config =

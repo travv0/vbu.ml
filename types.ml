@@ -12,38 +12,28 @@ let print_config_row ~value ?new_value label =
   | Some nv -> sprintf " -> %s" nv
   | None -> ""
 
-type group = { name : string; path : string; glob : string option }
+type group = { name : string; path : string; glob : string }
 
 module Group = struct
   let to_json { name; path; glob } =
     `Assoc
-      [ ("name", `String name)
-      ; ("path", `String path)
-      ; ( "glob"
-        , glob
-          |> Option.map ~f:(fun a -> `String a)
-          |> Option.value ~default:`Null )
-      ]
+      [ ("name", `String name); ("path", `String path); ("glob", `String glob) ]
 
   let of_json json =
     let open Yojson.Basic.Util in
     { name = json |> member "name" |> to_string
     ; path = json |> member "path" |> to_string
-    ; glob = json |> member "glob" |> to_string_option
+    ; glob =
+        json
+        |> member "glob"
+        |> to_string_option
+        |> Option.value ~default:default_glob
     }
 
   let print ?new_name ?new_path ?new_glob group =
     print_config_row "Name" ~value:group.name ?new_value:new_name;
     print_config_row "Path" ~value:group.path ?new_value:new_path;
-
-    (match (group.glob, new_glob) with
-    | _, Some new_glob ->
-        print_config_row "Glob"
-          ~value:(Option.value ~default:"" group.glob)
-          ~new_value:(Option.value ~default:"" new_glob)
-    | Some _, None ->
-        print_config_row "Glob" ~value:(Option.value ~default:"" group.glob)
-    | _ -> ());
+    print_config_row "Glob" ~value:group.glob ?new_value:new_glob;
 
     printf "\n"
 end

@@ -4,7 +4,7 @@ edit group
   $ ../vbu.exe edit --config config.json test -p "/edited" -g none
   Name: test
   Path: /test/game/path -> /edited
-  Glob: 
+  Glob: **
   
 
   $ ../vbu.exe edit --config config.json another -n new -p "/edited" -g ".*"
@@ -16,5 +16,5 @@ edit group
   $ ../vbu.exe edit --config config.json new -g ""
   Name: new
   Path: /edited
-  Glob: .* -> 
+  Glob: .* -> **
   

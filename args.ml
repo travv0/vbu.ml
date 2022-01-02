@@ -3,7 +3,7 @@ open Cmdliner
 open Printf
 open Util.FileSystem
 
-let config_path =
+let config_path_t =
   let doc = "Path to configuration file." in
   Arg.(
     value
@@ -44,14 +44,12 @@ module AddCmd = struct
 
   let glob =
     let doc =
-      sprintf
-        "File glob for added group's files. Only files matching this pattern \
-         will be backed up. The default is %s which will recursively back up \
-         all files in PATH."
-        default_glob
+      "File glob for added group's files. Only files matching this pattern \
+       will be backed up. By default, all files in PATH will be recursively \
+       backed up."
     in
     Arg.(
-      value & opt (some string) None & info [ "g"; "glob" ] ~docv:"GLOB" ~doc)
+      value & opt string default_glob & info [ "g"; "glob" ] ~docv:"GLOB" ~doc)
 end
 
 module ListCmd = struct
