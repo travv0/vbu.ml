@@ -19,3 +19,15 @@ module Config : sig
   val load : string -> config
   val save : config -> string -> unit
 end
+
+module Vbu : sig
+  type 'a t
+
+  val run_reader : 'a t -> config -> 'a
+  val ask : config t
+  val return : 'a -> 'a t
+  val ( >>= ) : 'a t -> ('a -> 'b t) -> 'b t
+  val ( let* ) : 'a t -> ('a -> 'b t) -> 'b t
+  val fold_list : f:('a -> 'b -> 'a t) -> init:'a -> 'b list -> 'a t
+  val whenm : bool -> (unit -> unit t) -> unit t
+end

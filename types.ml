@@ -113,3 +113,42 @@ module Config = struct
     mkdir_p (dirname path) 0o775;
     Yojson.Basic.to_file path (to_json config)
 end
+
+module type Monad = sig
+  type 'a t
+
+  val return : 'a -> 'a t
+  val bind : 'a t -> ('a -> 'b t) -> 'b t
+end
+
+module MonadOps (M : Monad) = struct
+  let ( >>= ) = M.bind
+  let ( let* ) = M.bind
+
+  let rec fold_list ~f ~init = function
+    | [] -> M.return init
+    | x :: xs -> f init x >>= fun a' -> fold_list ~f ~init:a' xs
+
+  let whenm c f = if c then f () else M.return ()
+end
+
+module Reader (R : sig
+  type env
+end) =
+struct
+  module T = struct
+    type 'a t = Reader of (R.env -> 'a)
+
+    let run_reader (Reader f) = f
+    let ask = Reader (fun x -> x)
+    let return x = Reader (fun _ -> x)
+    let bind (Reader f) g = Reader (fun x -> run_reader (g (f x)) x)
+  end
+
+  include T
+  include MonadOps (T)
+end
+
+module Vbu = Reader (struct
+  type env = config
+end)

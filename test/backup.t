@@ -89,3 +89,29 @@ check cleanup
   b.txt.bak.$TIMESTAMP
   c.txt
   files
+
+keep all
+  $ ../vbu.exe config --config config.json --keep 0
+  Backup path: ./.vbu-backups
+  Backup frequency (in minutes): 15
+  Number of backups to keep: 3 -> 0
+  
+
+  $ sleep 1 && touch files/files/b.txt
+
+  $ ../vbu.exe backup --config config.json -v | sed -E -e 's/[0-9]+\.[0-9]+/$SECONDS/' -E -e 's/(Finished backing up [0-9]+ files? for files in \$SECONDSs on).*/\1 $DATE_AND_TIME/' -E -e 's/bak\.[0-9_]+/bak.$TIMESTAMP/'
+  Warning: Path set for another doesn't exist: /another/path
+  $TESTCASE_ROOT/files/files/b.txt ==>
+  	./.vbu-backups/files/files/b.txt
+  
+  Finished backing up 1 file for files in $SECONDSs on $DATE_AND_TIME
+  
+  Warning: Path set for test doesn't exist: /test/game/path
+
+  $ ls .vbu-backups/files/files | sed -E -e 's/bak\.[0-9_]+/bak.$TIMESTAMP/'
+  b.txt
+  b.txt.bak.$TIMESTAMP
+  b.txt.bak.$TIMESTAMP
+  b.txt.bak.$TIMESTAMP
+  c.txt
+  files
