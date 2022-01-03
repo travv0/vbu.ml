@@ -1,7 +1,7 @@
   $ chmod +w config.json
 
 backup files
-  $ ../vbu.exe add --config config.json files -p files -g "*.{txt,sh}"
+  $ ../vbu.exe --config config.json add files -p files -g "*.{txt,sh}"
   Group added successfully:
   
   Name: files
@@ -9,7 +9,7 @@ backup files
   Glob: *.{txt,sh}
   
 
-  $ ../vbu.exe backup --config config.json -v | sed -E -e 's/[0-9]+\.[0-9]+/$SECONDS/' -E -e 's/(Finished backing up [0-9]+ files? for files in \$SECONDSs on).*/\1 $DATE_AND_TIME/' | sort
+  $ ../vbu.exe --config config.json backup -v | sed -E -e 's/[0-9]+\.[0-9]+/$SECONDS/' -E -e 's/(Finished backing up [0-9]+ files? for files in \$SECONDSs on).*/\1 $DATE_AND_TIME/' | sort
   
   
   	./.vbu-backups/files/a.txt
@@ -24,7 +24,7 @@ backup files
   Warning: Path set for another doesn't exist: /another/path
   Warning: Path set for test doesn't exist: /test/game/path
 
-  $ ../vbu.exe backup --config config.json -v
+  $ ../vbu.exe --config config.json backup -v
   Warning: Path set for another doesn't exist: /another/path
   Warning: Path set for test doesn't exist: /test/game/path
 
@@ -44,7 +44,7 @@ check backup directory contents
 check versioning
   $ sleep 1 && touch files/files/b.txt
 
-  $ ../vbu.exe backup --config config.json -v | sed -E -e 's/[0-9]+\.[0-9]+/$SECONDS/' -E -e 's/(Finished backing up [0-9]+ files? for files in \$SECONDSs on).*/\1 $DATE_AND_TIME/'
+  $ ../vbu.exe --config config.json backup -v | sed -E -e 's/[0-9]+\.[0-9]+/$SECONDS/' -E -e 's/(Finished backing up [0-9]+ files? for files in \$SECONDSs on).*/\1 $DATE_AND_TIME/'
   Warning: Path set for another doesn't exist: /another/path
   $TESTCASE_ROOT/files/files/b.txt ==>
   	./.vbu-backups/files/files/b.txt
@@ -62,7 +62,7 @@ check versioning
 check cleanup
   $ sleep 1 && touch files/files/b.txt
 
-  $ ../vbu.exe backup --config config.json -v | sed -E -e 's/[0-9]+\.[0-9]+/$SECONDS/' -E -e 's/(Finished backing up [0-9]+ files? for files in \$SECONDSs on).*/\1 $DATE_AND_TIME/'
+  $ ../vbu.exe --config config.json backup -v | sed -E -e 's/[0-9]+\.[0-9]+/$SECONDS/' -E -e 's/(Finished backing up [0-9]+ files? for files in \$SECONDSs on).*/\1 $DATE_AND_TIME/'
   Warning: Path set for another doesn't exist: /another/path
   $TESTCASE_ROOT/files/files/b.txt ==>
   	./.vbu-backups/files/files/b.txt
@@ -73,7 +73,7 @@ check cleanup
 
   $ sleep 1 && touch files/files/b.txt
 
-  $ ../vbu.exe backup --config config.json -v | sed -E -e 's/[0-9]+\.[0-9]+/$SECONDS/' -E -e 's/(Finished backing up [0-9]+ files? for files in \$SECONDSs on).*/\1 $DATE_AND_TIME/' -E -e 's/bak\.[0-9_]+/bak.$TIMESTAMP/'
+  $ ../vbu.exe --config config.json backup -v | sed -E -e 's/[0-9]+\.[0-9]+/$SECONDS/' -E -e 's/(Finished backing up [0-9]+ files? for files in \$SECONDSs on).*/\1 $DATE_AND_TIME/' -E -e 's/bak\.[0-9_]+/bak.$TIMESTAMP/'
   Warning: Path set for another doesn't exist: /another/path
   $TESTCASE_ROOT/files/files/b.txt ==>
   	./.vbu-backups/files/files/b.txt
@@ -91,7 +91,7 @@ check cleanup
   files
 
 keep all
-  $ ../vbu.exe config --config config.json --keep 0
+  $ ../vbu.exe --config config.json config --keep 0
   Backup path: ./.vbu-backups
   Backup frequency (in minutes): 15
   Number of backups to keep: 3 -> 0
@@ -99,7 +99,7 @@ keep all
 
   $ sleep 1 && touch files/files/b.txt
 
-  $ ../vbu.exe backup --config config.json -v | sed -E -e 's/[0-9]+\.[0-9]+/$SECONDS/' -E -e 's/(Finished backing up [0-9]+ files? for files in \$SECONDSs on).*/\1 $DATE_AND_TIME/' -E -e 's/bak\.[0-9_]+/bak.$TIMESTAMP/'
+  $ ../vbu.exe --config config.json backup -v | sed -E -e 's/[0-9]+\.[0-9]+/$SECONDS/' -E -e 's/(Finished backing up [0-9]+ files? for files in \$SECONDSs on).*/\1 $DATE_AND_TIME/' -E -e 's/bak\.[0-9_]+/bak.$TIMESTAMP/'
   Warning: Path set for another doesn't exist: /another/path
   $TESTCASE_ROOT/files/files/b.txt ==>
   	./.vbu-backups/files/files/b.txt

@@ -1,5 +1,5 @@
 list info for all groups
-  $ ../vbu.exe info --config config.json
+  $ ../vbu.exe --config config.json info
   Name: another
   Path: /another/path
   Glob: save*
@@ -9,13 +9,13 @@ list info for all groups
   
 
 list info for selected groups
-  $ ../vbu.exe info --config config.json another
+  $ ../vbu.exe --config config.json info another
   Name: another
   Path: /another/path
   Glob: save*
   
 
-  $ ../vbu.exe info --config config.json another new
+  $ ../vbu.exe --config config.json info another new
   Warning: No group named `new'
   
   Name: another
