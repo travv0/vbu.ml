@@ -23,7 +23,7 @@ end
 module Vbu : sig
   type 'a t
 
-  val run : 'a t -> config -> 'a
+  val run_reader : 'a t -> config -> 'a
   val ask : config t
   val return : 'a -> 'a t
   val ( >>= ) : 'a t -> ('a -> 'b t) -> 'b t

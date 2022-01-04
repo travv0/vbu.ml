@@ -139,10 +139,10 @@ struct
   module T = struct
     type 'a t = Reader of (R.env -> 'a)
 
-    let run (Reader f) = f
+    let run_reader (Reader f) = f
     let ask = Reader (fun x -> x)
     let return x = Reader (fun _ -> x)
-    let bind (Reader f) g = Reader (fun x -> run (g (f x)) x)
+    let bind (Reader f) g = Reader (fun x -> run_reader (g (f x)) x)
   end
 
   include T

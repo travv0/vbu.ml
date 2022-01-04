@@ -1,4 +1,4 @@
 list groups
-  $ ../vbu.exe --config config.json list
+  $ ../vbu.exe list --config config.json
   another
   test

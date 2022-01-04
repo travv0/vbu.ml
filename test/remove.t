@@ -1,23 +1,23 @@
   $ chmod +w config.json
 
 don't remove groups by answering no
-  $ echo n | ../vbu.exe --config config.json remove test
+  $ echo n | ../vbu.exe remove --config config.json test
   
   Are you sure you want to remove test? (y/N) 
 
-  $ ../vbu.exe --config config.json list
+  $ ../vbu.exe list --config config.json
   another
   test
 
 remove groups
-  $ echo y | ../vbu.exe --config config.json remove test
+  $ echo y | ../vbu.exe remove --config config.json test
   
   Are you sure you want to remove test? (y/N) Removed test
 
-  $ ../vbu.exe --config config.json list
+  $ ../vbu.exe list --config config.json
   another
 
-  $ ../vbu.exe --config config.json remove another -y
+  $ ../vbu.exe remove --config config.json another -y
   Removed another
 
-  $ ../vbu.exe --config config.json list
+  $ ../vbu.exe list --config config.json
