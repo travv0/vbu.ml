@@ -15,12 +15,14 @@ backup files
   	./.vbu-backups/files/a.txt
   	./.vbu-backups/files/files/b.txt
   	./.vbu-backups/files/files/c.txt
+  	./.vbu-backups/files/files/files/[0-9].txt
   	./.vbu-backups/files/files/files/d.sh
   $TESTCASE_ROOT/files/a.txt ==>
   $TESTCASE_ROOT/files/files/b.txt ==>
   $TESTCASE_ROOT/files/files/c.txt ==>
+  $TESTCASE_ROOT/files/files/files/[0-9].txt ==>
   $TESTCASE_ROOT/files/files/files/d.sh ==>
-  Finished backing up 4 files for files in $SECONDSs on $DATE_AND_TIME
+  Finished backing up 5 files for files in $SECONDSs on $DATE_AND_TIME
   Warning: Path set for another doesn't exist: /another/path
   Warning: Path set for test doesn't exist: /test/game/path
 
@@ -39,17 +41,20 @@ check backup directory contents
   files
 
   $ ls .vbu-backups/files/files/files
+  [0-9].txt
   d.sh
 
 check versioning
-  $ sleep 1 && touch files/files/b.txt
+  $ sleep 1 && touch files/files/b.txt && touch files/files/files/\[0-9\].txt
 
   $ ../vbu.exe backup --config config.json -v | sed -E -e 's/[0-9]+\.[0-9]+/$SECONDS/' -E -e 's/(Finished backing up [0-9]+ files? for files in \$SECONDSs on).*/\1 $DATE_AND_TIME/'
   Warning: Path set for another doesn't exist: /another/path
   $TESTCASE_ROOT/files/files/b.txt ==>
   	./.vbu-backups/files/files/b.txt
+  $TESTCASE_ROOT/files/files/files/[0-9].txt ==>
+  	./.vbu-backups/files/files/files/[0-9].txt
   
-  Finished backing up 1 file for files in $SECONDSs on $DATE_AND_TIME
+  Finished backing up 2 files for files in $SECONDSs on $DATE_AND_TIME
   
   Warning: Path set for test doesn't exist: /test/game/path
 
@@ -60,26 +65,31 @@ check versioning
   files
 
 check cleanup
-  $ sleep 1 && touch files/files/b.txt
+  $ sleep 1 && touch files/files/b.txt && touch files/files/files/\[0-9\].txt
 
   $ ../vbu.exe backup --config config.json -v | sed -E -e 's/[0-9]+\.[0-9]+/$SECONDS/' -E -e 's/(Finished backing up [0-9]+ files? for files in \$SECONDSs on).*/\1 $DATE_AND_TIME/'
   Warning: Path set for another doesn't exist: /another/path
   $TESTCASE_ROOT/files/files/b.txt ==>
   	./.vbu-backups/files/files/b.txt
+  $TESTCASE_ROOT/files/files/files/[0-9].txt ==>
+  	./.vbu-backups/files/files/files/[0-9].txt
   
-  Finished backing up 1 file for files in $SECONDSs on $DATE_AND_TIME
+  Finished backing up 2 files for files in $SECONDSs on $DATE_AND_TIME
   
   Warning: Path set for test doesn't exist: /test/game/path
 
-  $ sleep 1 && touch files/files/b.txt
+  $ sleep 1 && touch files/files/b.txt && touch files/files/files/\[0-9\].txt
 
   $ ../vbu.exe backup --config config.json -v | sed -E -e 's/[0-9]+\.[0-9]+/$SECONDS/' -E -e 's/(Finished backing up [0-9]+ files? for files in \$SECONDSs on).*/\1 $DATE_AND_TIME/' -E -e 's/bak\.[0-9_]+/bak.$TIMESTAMP/'
   Warning: Path set for another doesn't exist: /another/path
   $TESTCASE_ROOT/files/files/b.txt ==>
   	./.vbu-backups/files/files/b.txt
   Note: Deleting ./.vbu-backups/files/files/b.txt.bak.$TIMESTAMP
+  $TESTCASE_ROOT/files/files/files/[0-9].txt ==>
+  	./.vbu-backups/files/files/files/[0-9].txt
+  Note: Deleting ./.vbu-backups/files/files/files/[0-9].txt.bak.$TIMESTAMP
   
-  Finished backing up 1 file for files in $SECONDSs on $DATE_AND_TIME
+  Finished backing up 2 files for files in $SECONDSs on $DATE_AND_TIME
   
   Warning: Path set for test doesn't exist: /test/game/path
 
@@ -89,6 +99,12 @@ check cleanup
   b.txt.bak.$TIMESTAMP
   c.txt
   files
+
+  $ ls .vbu-backups/files/files/files | sed -E -e 's/bak\.[0-9_]+/bak.$TIMESTAMP/'
+  [0-9].txt
+  [0-9].txt.bak.$TIMESTAMP
+  [0-9].txt.bak.$TIMESTAMP
+  d.sh
 
 keep all
   $ ../vbu.exe config --config config.json --keep 0
@@ -97,14 +113,16 @@ keep all
   Number of backups to keep: 3 -> 0
   
 
-  $ sleep 1 && touch files/files/b.txt
+  $ sleep 1 && touch files/files/b.txt && touch files/files/files/\[0-9\].txt
 
   $ ../vbu.exe backup --config config.json -v | sed -E -e 's/[0-9]+\.[0-9]+/$SECONDS/' -E -e 's/(Finished backing up [0-9]+ files? for files in \$SECONDSs on).*/\1 $DATE_AND_TIME/' -E -e 's/bak\.[0-9_]+/bak.$TIMESTAMP/'
   Warning: Path set for another doesn't exist: /another/path
   $TESTCASE_ROOT/files/files/b.txt ==>
   	./.vbu-backups/files/files/b.txt
+  $TESTCASE_ROOT/files/files/files/[0-9].txt ==>
+  	./.vbu-backups/files/files/files/[0-9].txt
   
-  Finished backing up 1 file for files in $SECONDSs on $DATE_AND_TIME
+  Finished backing up 2 files for files in $SECONDSs on $DATE_AND_TIME
   
   Warning: Path set for test doesn't exist: /test/game/path
 
@@ -115,3 +133,10 @@ keep all
   b.txt.bak.$TIMESTAMP
   c.txt
   files
+
+  $ ls .vbu-backups/files/files/files | sed -E -e 's/bak\.[0-9_]+/bak.$TIMESTAMP/'
+  [0-9].txt
+  [0-9].txt.bak.$TIMESTAMP
+  [0-9].txt.bak.$TIMESTAMP
+  [0-9].txt.bak.$TIMESTAMP
+  d.sh

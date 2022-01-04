@@ -27,16 +27,14 @@ let warn_missing_groups (groups : string list) =
 let cleanup_backups backup_path verbose =
   let* config = ask in
   whenm (config.num_to_keep > 0) (fun () ->
-      let glob = backup_path ^ ".bak.????_??_??_??_??_??" |> Glob.of_string in
-
-      let all_files =
-        readdir (dirname backup_path)
-        |> Array.map ~f:(fun f -> dirname backup_path ^/ f)
-      in
-
+      let glob = Glob.of_string "*.bak.????_??_??_??_??_??" in
+      let all_files = readdir (dirname backup_path) in
+      let backup_name = basename backup_path in
       let files =
         all_files
-        |> Array.filter ~f:(Glob.test glob)
+        |> Array.filter ~f:(fun f ->
+               Glob.test glob f && String.is_prefix f ~prefix:backup_name)
+        |> Array.map ~f:(fun f -> dirname backup_path ^/ f)
         |> Array.append [| backup_path |]
       in
 
@@ -390,7 +388,7 @@ let config_t =
   Term.(
     const edit_config $ ConfigCmd.path $ ConfigCmd.frequency $ ConfigCmd.keep)
 
-let vbu_info = Term.info "vbu" ~version:"v1.3.1"
+let vbu_info = Term.info "vbu" ~version:"v1.3.2"
 let vbu_t = Term.(ret (const (Fn.const (`Help (`Pager, None))) $ const 0))
 
 let () =
