@@ -210,6 +210,7 @@ let rec backup (group_names : string list) (loop : bool) (verbose : bool) =
            Pass --verbose flag to print all warnings after backup completes\n\n"));
 
   if loop then (
+    Out_channel.flush stdout;
     Unix.sleep (config.frequency * 60);
     backup group_names loop verbose)
   else return None
@@ -418,7 +419,7 @@ let config_t =
     $ (const edit_config $ ConfigCmd.path $ ConfigCmd.frequency $ ConfigCmd.keep)
     $ load_config_t)
 
-let vbu_info = Term.info "vbu" ~version:"v1.3.0"
+let vbu_info = Term.info "vbu" ~version:"v1.3.1"
 let vbu_t = Term.(ret (const (Fn.const (`Help (`Pager, None))) $ const 0))
 
 let () =
