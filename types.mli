@@ -25,11 +25,25 @@ end
 module Vbu : sig
   type 'a t
 
-  val run_reader : 'a t -> config -> 'a
+  val run : 'a t -> config -> 'a
   val ask : config t
   val return : 'a -> 'a t
   val ( >>= ) : 'a t -> ('a -> 'b t) -> 'b t
   val ( let* ) : 'a t -> ('a -> 'b t) -> 'b t
-  val fold_list : f:('a -> 'b -> 'a t) -> init:'a -> 'b list -> 'a t
+
+  module List : sig
+    val foldm :
+      'a list -> init:'accum -> f:('accum -> 'a -> 'accum t) -> 'accum t
+
+    include module type of Base.List
+  end
+
+  module Array : sig
+    val foldm :
+      'a array -> init:'accum -> f:('accum -> 'a -> 'accum t) -> 'accum t
+
+    include module type of Base.Array
+  end
+
   val whenm : bool -> (unit -> unit t) -> unit t
 end

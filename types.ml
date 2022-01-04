@@ -132,9 +132,25 @@ module MonadOps (M : Monad) = struct
   let ( >>= ) = M.bind
   let ( let* ) = M.bind
 
-  let rec fold_list ~f ~init = function
-    | [] -> M.return init
-    | x :: xs -> f init x >>= fun a' -> fold_list ~f ~init:a' xs
+  module List = struct
+    let rec foldm l ~init ~f =
+      match l with
+      | [] -> M.return init
+      | x :: xs -> f init x >>= fun a -> foldm ~f ~init:a xs
+
+    include List
+  end
+
+  module Array = struct
+    let foldm a ~init ~f =
+      let r = ref @@ M.return init in
+      for i = 0 to Array.length a - 1 do
+        r := !r >>= fun x -> f x (Array.unsafe_get a i)
+      done;
+      !r
+
+    include Array
+  end
 
   let whenm c f = if c then f () else M.return ()
 end
@@ -146,10 +162,10 @@ struct
   module T = struct
     type 'a t = Reader of (R.env -> 'a)
 
-    let run_reader (Reader f) = f
+    let run (Reader f) = f
     let ask = Reader (fun x -> x)
     let return x = Reader (fun _ -> x)
-    let bind (Reader f) g = Reader (fun x -> run_reader (g (f x)) x)
+    let bind (Reader f) g = Reader (fun x -> run (g (f x)) x)
   end
 
   include T

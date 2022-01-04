@@ -121,8 +121,7 @@ let rec backup_file group base_path glob from_path to_path (verbose : bool) =
 
 and backup_files group base_path glob from_path to_path verbose =
   readdir from_path
-  |> Array.to_list
-  |> fold_list
+  |> Array.foldm
        ~f:(fun (c, es) path ->
          let file = basename path in
 
@@ -183,7 +182,7 @@ let rec backup (group_names : string list) (loop : bool) (verbose : bool) =
   in
 
   let* warnings =
-    fold_list group_names
+    List.foldm group_names
       ~f:(fun acc group ->
         try
           let* warnings = backup_group group verbose in
@@ -409,8 +408,7 @@ let () =
     ; (edit_t, EditCmd.info)
     ; (config_t, ConfigCmd.info)
     ]
-    |> List.map ~f:(fun (term, i) ->
-           Term.(const run_reader $ term $ load_config_t, i))
+    |> List.map ~f:(fun (term, i) -> Term.(const run $ term $ load_config_t, i))
     |> Term.eval_choice (vbu_t, vbu_info)
   in
   match result with
