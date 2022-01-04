@@ -215,21 +215,13 @@ let rec backup (group_names : string list) (loop : bool) (verbose : bool) =
     backup group_names loop verbose)
   else return None
 
-let valid_group_name_chars : (char, _) Set.t =
-  List.filter Char.all ~f:Char.is_alphanum @ [ '-'; '_' ]
-  |> Set.of_list (module Char)
-
-let is_valid_group_name =
-  String.for_all ~f:(fun c ->
-      Set.exists ~f:Char.(( = ) c) valid_group_name_chars)
-
 let add (group : string) (path : string) (glob : string) =
   let* config = ask in
   if List.exists ~f:String.(fun g -> g.name = group) config.groups then (
     err (sprintf "Group with the name %s already exists" group);
 
     return None)
-  else if not (is_valid_group_name group) then (
+  else if not (Group.is_valid_name group) then (
     err
       (sprintf
          "Invalid characters in name `%s': only alphanumeric characters, \
@@ -336,7 +328,7 @@ let edit
             }
           in
 
-          if not (is_valid_group_name new_name) then (
+          if not (Group.is_valid_name new_name) then (
             err
               (sprintf
                  "Invalid characters in name `%s': only alphanumeric \

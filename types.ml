@@ -41,6 +41,13 @@ module Group = struct
     | _ -> ());
 
     printf "\n"
+
+  let valid_name_chars : (char, _) Set.t =
+    List.filter Char.all ~f:Char.is_alphanum @ [ '-'; '_' ]
+    |> Set.of_list (module Char)
+
+  let is_valid_name =
+    String.for_all ~f:(fun c -> Set.exists ~f:Char.(( = ) c) valid_name_chars)
 end
 
 type config =

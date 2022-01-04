@@ -3,6 +3,8 @@ type group = { name : string; path : string; glob : string }
 module Group : sig
   val print :
     ?new_name:string -> ?new_path:string -> ?new_glob:string -> group -> unit
+
+  val is_valid_name : string -> bool
 end
 
 type config =
