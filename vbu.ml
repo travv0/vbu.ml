@@ -385,39 +385,19 @@ let edit_config
 let load_config_t = Term.(const Config.load $ config_path_t)
 
 let backup_t =
-  Term.(
-    const run_reader
-    $ (const backup $ BackupCmd.groups $ BackupCmd.loop $ BackupCmd.verbose)
-    $ load_config_t)
+  Term.(const backup $ BackupCmd.groups $ BackupCmd.loop $ BackupCmd.verbose)
 
-let add_t =
-  Term.(
-    const run_reader
-    $ (const add $ AddCmd.group $ AddCmd.path $ AddCmd.glob)
-    $ load_config_t)
-
-let list_t = Term.(const run_reader $ const list $ load_config_t)
-
-let info_t =
-  Term.(const run_reader $ (const print_info $ InfoCmd.groups) $ load_config_t)
-
-let remove_t =
-  Term.(
-    const run_reader
-    $ (const remove $ RemoveCmd.groups $ RemoveCmd.yes)
-    $ load_config_t)
+let add_t = Term.(const add $ AddCmd.group $ AddCmd.path $ AddCmd.glob)
+let list_t = Term.(const list)
+let info_t = Term.(const print_info $ InfoCmd.groups)
+let remove_t = Term.(const remove $ RemoveCmd.groups $ RemoveCmd.yes)
 
 let edit_t =
-  Term.(
-    const run_reader
-    $ (const edit $ EditCmd.group $ EditCmd.name $ EditCmd.path $ EditCmd.glob)
-    $ load_config_t)
+  Term.(const edit $ EditCmd.group $ EditCmd.name $ EditCmd.path $ EditCmd.glob)
 
 let config_t =
   Term.(
-    const run_reader
-    $ (const edit_config $ ConfigCmd.path $ ConfigCmd.frequency $ ConfigCmd.keep)
-    $ load_config_t)
+    const edit_config $ ConfigCmd.path $ ConfigCmd.frequency $ ConfigCmd.keep)
 
 let vbu_info = Term.info "vbu" ~version:"v1.3.1"
 let vbu_t = Term.(ret (const (Fn.const (`Help (`Pager, None))) $ const 0))
@@ -429,15 +409,17 @@ let () =
     |> Option.value ~default:default_config_path
   in
   let result =
-    Term.eval_choice (vbu_t, vbu_info)
-      [ (backup_t, BackupCmd.info)
-      ; (add_t, AddCmd.info)
-      ; (list_t, ListCmd.info)
-      ; (info_t, InfoCmd.info)
-      ; (remove_t, RemoveCmd.info)
-      ; (edit_t, EditCmd.info)
-      ; (config_t, ConfigCmd.info)
-      ]
+    [ (backup_t, BackupCmd.info)
+    ; (add_t, AddCmd.info)
+    ; (list_t, ListCmd.info)
+    ; (info_t, InfoCmd.info)
+    ; (remove_t, RemoveCmd.info)
+    ; (edit_t, EditCmd.info)
+    ; (config_t, ConfigCmd.info)
+    ]
+    |> List.map ~f:(fun (term, i) ->
+           Term.(const run_reader $ term $ load_config_t, i))
+    |> Term.eval_choice (vbu_t, vbu_info)
   in
   match result with
   | `Ok (Some new_config) -> Config.save new_config config_path
