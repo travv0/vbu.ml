@@ -212,6 +212,9 @@ let rec backup (group_names : string list) (loop : bool) (verbose : bool) =
     backup group_names loop verbose)
   else return None
 
+let warn_missing_path path =
+  if not (dir_exists path) then warn (sprintf "Path doesn't exist: %s" path)
+
 let add (group : string) (path : string) (glob : string) =
   let* config = ask in
   if List.exists ~f:String.(fun g -> g.name = group) config.groups then (
@@ -230,6 +233,8 @@ let add (group : string) (path : string) (glob : string) =
       match glob with "none" | "" -> default_glob | glob -> glob
     in
     let new_group = { name = group; path = realpath path; glob = new_glob } in
+
+    warn_missing_path new_group.path;
 
     let new_groups =
       config.groups @ [ new_group ]
@@ -324,6 +329,8 @@ let edit
             ; glob = new_glob |> Option.value ~default:group.glob
             }
           in
+
+          warn_missing_path edited_group.path;
 
           if not (Group.is_valid_name new_name) then (
             err
