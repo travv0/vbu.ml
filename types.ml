@@ -14,21 +14,7 @@ let print_config_row ~value ?new_value label =
 
 module Group = struct
   type t = { name : string; path : string; glob : string }
-
-  let to_json { name; path; glob } =
-    `Assoc
-      [ ("name", `String name); ("path", `String path); ("glob", `String glob) ]
-
-  let of_json json =
-    let open Yojson.Basic.Util in
-    { name = json |> member "name" |> to_string
-    ; path = json |> member "path" |> to_string
-    ; glob =
-        json
-        |> member "glob"
-        |> to_string_option
-        |> Option.value ~default:default_glob
-    }
+  [@@deriving yojson { exn = true }]
 
   let print ?new_name ?new_path ?new_glob group =
     print_config_row "Name" ~value:group.name ?new_value:new_name;
@@ -53,28 +39,13 @@ end
 module Config = struct
   type t =
     { path : string; frequency : int; num_to_keep : int; groups : Group.t list }
+  [@@deriving yojson { exn = true }]
 
   let default =
     { path = home_dir ^/ ".vbu-backups"
     ; frequency = 15
     ; num_to_keep = 20
     ; groups = []
-    }
-
-  let to_json { path; frequency; num_to_keep; groups } =
-    `Assoc
-      [ ("path", `String path)
-      ; ("frequency", `Int frequency)
-      ; ("num_to_keep", `Int num_to_keep)
-      ; ("groups", `List (List.map groups ~f:Group.to_json))
-      ]
-
-  let of_json json =
-    let open Yojson.Basic.Util in
-    { path = json |> member "path" |> to_string
-    ; frequency = json |> member "frequency" |> to_int
-    ; num_to_keep = json |> member "num_to_keep" |> to_int
-    ; groups = json |> member "groups" |> to_list |> List.map ~f:Group.of_json
     }
 
   let print ?new_backup_dir ?new_backup_freq ?new_backups_to_keep config =
@@ -97,12 +68,12 @@ module Config = struct
       path default.path default.frequency default.num_to_keep;
 
     mkdir_p (dirname path) 0o775;
-    Yojson.to_file path (to_json default)
+    Yojson.Safe.to_file path (to_yojson default)
 
   let load path =
     if not (file_exists path) then save_default path;
 
-    try Yojson.Basic.from_file path |> of_json
+    try Yojson.Safe.from_file path |> of_yojson_exn
     with e ->
       warn
         (sprintf
@@ -118,7 +89,7 @@ module Config = struct
 
   let save config path =
     mkdir_p (dirname path) 0o775;
-    Yojson.Basic.to_file path (to_json config)
+    Yojson.Safe.to_file path (to_yojson config)
 end
 
 module RunConfig = struct
