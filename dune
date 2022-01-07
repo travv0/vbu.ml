@@ -1,3 +1,5 @@
 (executable
  (name vbu)
- (libraries base stdio ANSITerminal dune-glob unix cmdliner yojson))
+ (libraries base stdio ANSITerminal dune-glob unix cmdliner yojson)
+ (preprocess
+  (pps ppx_let)))

@@ -125,28 +125,20 @@ module RunConfig = struct
   type t = { config : Config.t; verbose : bool }
 end
 
-module type Monad = sig
-  type 'a t
-
-  val return : 'a -> 'a t
-  val bind : 'a t -> ('a -> 'b t) -> 'b t
-end
-
-module MonadOps (M : Monad) = struct
-  let ( >>= ) = M.bind
-  let ( let* ) = M.bind
+module MonadOps (M : Monad.S) = struct
+  open M
 
   module List = struct
-    let rec foldm l ~init ~f =
+    let rec fold_m l ~init ~f =
       match l with
       | [] -> M.return init
-      | x :: xs -> f init x >>= fun a -> foldm ~f ~init:a xs
+      | x :: xs -> f init x >>= fun a -> fold_m ~f ~init:a xs
 
     include List
   end
 
   module Array = struct
-    let foldm a ~init ~f =
+    let fold_m a ~init ~f =
       let r = ref @@ M.return init in
       for i = 0 to Array.length a - 1 do
         r := !r >>= fun x -> f x (Array.unsafe_get a i)
@@ -156,7 +148,7 @@ module MonadOps (M : Monad) = struct
     include Array
   end
 
-  let whenm c f = if c then f () else M.return ()
+  let when_m c f = if c then f () else M.return ()
 end
 
 module Reader (R : sig
@@ -169,11 +161,20 @@ struct
     let run (Reader f) = f
     let ask = Reader (fun x -> x)
     let return x = Reader (fun _ -> x)
-    let bind (Reader f) g = Reader (fun x -> run (g (f x)) x)
+    let bind (Reader f) ~f:g = Reader (fun x -> run (g (f x)) x)
+    let map = `Define_using_bind
   end
 
   include T
-  include MonadOps (T)
+
+  module M = struct
+    type 'a t = 'a T.t
+
+    include Monad.Make (T)
+  end
+
+  include M
+  include MonadOps (M)
 end
 
 module Vbu = Reader (struct

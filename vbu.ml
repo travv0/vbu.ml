@@ -11,7 +11,8 @@ open Util.FileSystem
 module Glob = Dune_glob.V1
 
 let warn_missing_groups (groups : string list) =
-  let* { config; _ } = ask in
+  let open Vbu.Let_syntax in
+  let%bind { config; _ } = ask in
   let warning_printed =
     List.fold
       ~f:(fun warning_printed group ->
@@ -25,8 +26,9 @@ let warn_missing_groups (groups : string list) =
   return @@ if warning_printed then printf "\n"
 
 let cleanup_backups backup_path =
-  let* { config; verbose } = ask in
-  whenm (config.num_to_keep > 0) (fun () ->
+  let open Vbu.Let_syntax in
+  let%bind { config; verbose } = ask in
+  when_m (config.num_to_keep > 0) (fun () ->
       let glob = Glob.of_string "*.bak.????_??_??_??_??_??" in
       let all_files = readdir (dirname backup_path) in
       let backup_name = basename backup_path in
@@ -38,7 +40,7 @@ let cleanup_backups backup_path =
         |> Array.append [| backup_path |]
       in
 
-      whenm
+      when_m
         (Array.length files > config.num_to_keep)
         (fun () ->
           let sorted_files =
@@ -58,7 +60,8 @@ let cleanup_backups backup_path =
           |> return))
 
 let rec backup_file group base_path glob from_path to_path =
-  let* { verbose; _ } = ask in
+  let open Vbu.Let_syntax in
+  let%bind { verbose; _ } = ask in
   try
     let glob_matches () =
       Glob.test (Glob.of_string glob) (basename from_path)
@@ -68,7 +71,7 @@ let rec backup_file group base_path glob from_path to_path =
       mkdir_p (dirname to_path) 0o775;
       printf "%s ==>\n\t%s\n%!" from_path to_path;
       file_copy from_path to_path;
-      let* () = cleanup_backups to_path in
+      let%bind () = cleanup_backups to_path in
       return (1, [])
     in
 
@@ -118,12 +121,13 @@ let rec backup_file group base_path glob from_path to_path =
     return (1, [ warning ])
 
 and backup_files group base_path glob from_path to_path =
+  let open Vbu.Let_syntax in
   readdir from_path
-  |> Array.foldm
+  |> Array.fold_m
        ~f:(fun (c, es) path ->
          let file = basename path in
 
-         let* new_count, new_errs =
+         let%bind new_count, new_errs =
            backup_file group base_path glob (from_path ^/ file) (to_path ^/ file)
          in
 
@@ -131,7 +135,8 @@ and backup_files group base_path glob from_path to_path =
        ~init:(0, [])
 
 let backup_group group_name =
-  let* { config; _ } = ask in
+  let open Vbu.Let_syntax in
+  let%bind { config; _ } = ask in
   let start_time = Unix.gettimeofday () in
 
   let group =
@@ -141,7 +146,7 @@ let backup_group group_name =
   match group with
   | Some group ->
       if dir_exists group.path then (
-        let* backed_up_count, warnings =
+        let%bind backed_up_count, warnings =
           backup_files group.name group.path group.glob group.path
             (config.path ^/ group_name)
         in
@@ -166,22 +171,23 @@ let backup_group group_name =
         warn (sprintf "Path set for %s doesn't exist: %s" group_name group.path);
         return [])
   | None ->
-      let* () = warn_missing_groups [ group_name ] in
+      let%bind () = warn_missing_groups [ group_name ] in
       return []
 
 let rec backup (group_names : string list) (loop : bool) =
-  let* { config; verbose } = ask in
+  let open Vbu.Let_syntax in
+  let%bind { config; verbose } = ask in
   let group_names =
     match group_names with
     | [] -> List.map ~f:(fun g -> g.name) config.groups
     | gns -> gns
   in
 
-  let* warnings =
-    List.foldm group_names
+  let%bind warnings =
+    List.fold_m group_names
       ~f:(fun acc group ->
         try
-          let* warnings = backup_group group in
+          let%bind warnings = backup_group group in
           return (acc @ warnings)
         with e ->
           err (sprintf "Error backing up %s: %s" group (Exn.to_string e));
@@ -214,7 +220,8 @@ let warn_missing_path path =
   if not (dir_exists path) then warn (sprintf "Path doesn't exist: %s" path)
 
 let add (group : string) (path : string) (glob : string) =
-  let* { config; _ } = ask in
+  let open Vbu.Let_syntax in
+  let%bind { config; _ } = ask in
   if List.exists ~f:String.(fun g -> g.name = group) config.groups then (
     err (sprintf "Group with the name %s already exists" group);
 
@@ -247,14 +254,16 @@ let add (group : string) (path : string) (glob : string) =
     return @@ Some { config with groups = new_groups }
 
 let list =
-  let* { config; _ } = ask in
+  let open Vbu.Let_syntax in
+  let%bind { config; _ } = ask in
   List.iter ~f:(fun g -> printf "%s\n" g.name) config.groups;
   return None
 
 let print_info (group_names : string list) =
-  let* { config; _ } = ask in
-  let* () =
-    whenm
+  let open Vbu.Let_syntax in
+  let%bind { config; _ } = ask in
+  let%bind () =
+    when_m
       (List.length group_names > 0)
       (fun () -> warn_missing_groups group_names)
   in
@@ -272,8 +281,9 @@ let print_info (group_names : string list) =
   return None
 
 let remove (groups : string list) (yes : bool) =
-  let* { config; _ } = ask in
-  let* () = warn_missing_groups groups in
+  let open Vbu.Let_syntax in
+  let%bind { config; _ } = ask in
+  let%bind () = warn_missing_groups groups in
 
   let new_groups =
     List.filter_map config.groups ~f:(fun group ->
@@ -295,7 +305,8 @@ let edit
     (name : string option)
     (path : string option)
     (glob : string option) =
-  let* { config; verbose } = ask in
+  let open Vbu.Let_syntax in
+  let%bind { config; verbose } = ask in
   match (name, path, glob) with
   | None, None, None ->
       err "One or more of --name, --path, or --glob must be provided.";
@@ -308,7 +319,7 @@ let edit
 
       match split_list with
       | None ->
-          let* () = warn_missing_groups [ group_name ] in
+          let%bind () = warn_missing_groups [ group_name ] in
           return None
       | Some (_, []) ->
           err "Couldn't find group in list";
@@ -355,7 +366,8 @@ let edit_config
     (backup_dir : string option)
     (backup_freq : int option)
     (backups_to_keep : int option) =
-  let* { config; _ } = ask in
+  let open Vbu.Let_syntax in
+  let%bind { config; _ } = ask in
   let new_backup_dir =
     Option.map ~f:realpath backup_dir |> Option.value ~default:config.path
   in
