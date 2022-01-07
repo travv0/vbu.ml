@@ -12,9 +12,9 @@ let print_config_row ~value ?new_value label =
   | Some nv -> sprintf " -> %s" nv
   | None -> ""
 
-type group = { name : string; path : string; glob : string }
-
 module Group = struct
+  type t = { name : string; path : string; glob : string }
+
   let to_json { name; path; glob } =
     `Assoc
       [ ("name", `String name); ("path", `String path); ("glob", `String glob) ]
@@ -50,10 +50,10 @@ module Group = struct
     String.for_all ~f:(fun c -> Set.exists ~f:Char.(( = ) c) valid_name_chars)
 end
 
-type config =
-  { path : string; frequency : int; num_to_keep : int; groups : group list }
-
 module Config = struct
+  type t =
+    { path : string; frequency : int; num_to_keep : int; groups : Group.t list }
+
   let default =
     { path = home_dir ^/ ".vbu-backups"
     ; frequency = 15
@@ -121,6 +121,10 @@ module Config = struct
     Yojson.Basic.to_file path (to_json config)
 end
 
+module RunConfig = struct
+  type t = { config : Config.t; verbose : bool }
+end
+
 module type Monad = sig
   type 'a t
 
@@ -173,5 +177,5 @@ struct
 end
 
 module Vbu = Reader (struct
-  type env = config
+  type env = RunConfig.t
 end)

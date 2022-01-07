@@ -10,8 +10,7 @@ module Console = struct
   let err s = ANSITerminal.(printf [ red ] "Error: %s\n" s)
 
   let rec prompt_y_or_n prompt =
-    printf "\n%s (y/N) " prompt;
-    Out_channel.flush stdout;
+    printf "\n%s (y/N) %!" prompt;
 
     match
       In_channel.input_line ~fix_win_eol:true stdin

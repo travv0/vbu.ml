@@ -10,6 +10,10 @@ let config_path_t =
     & opt string default_config_path
     & info [ "config" ] ~docv:"CONFIG_PATH" ~doc)
 
+let verbose_t =
+  let doc = "Print verbose output." in
+  Arg.(value & flag & info [ "v"; "verbose" ] ~docv:"VERBOSE" ~doc)
+
 module BackupCmd = struct
   let info = Term.info "backup" ~doc:"Backup your files."
 
@@ -24,10 +28,6 @@ module BackupCmd = struct
       "Keep running, backing up files at the interval specified in your config."
     in
     Arg.(value & flag & info [ "l"; "loop" ] ~docv:"LOOP" ~doc)
-
-  let verbose =
-    let doc = "Print verbose output." in
-    Arg.(value & flag & info [ "v"; "verbose" ] ~docv:"VERBOSE" ~doc)
 end
 
 module AddCmd = struct

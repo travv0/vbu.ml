@@ -11,7 +11,7 @@ open Util.FileSystem
 module Glob = Dune_glob.V1
 
 let warn_missing_groups (groups : string list) =
-  let* config = ask in
+  let* { config; _ } = ask in
   let warning_printed =
     List.fold
       ~f:(fun warning_printed group ->
@@ -24,8 +24,8 @@ let warn_missing_groups (groups : string list) =
   in
   return @@ if warning_printed then printf "\n"
 
-let cleanup_backups backup_path verbose =
-  let* config = ask in
+let cleanup_backups backup_path =
+  let* { config; verbose } = ask in
   whenm (config.num_to_keep > 0) (fun () ->
       let glob = Glob.of_string "*.bak.????_??_??_??_??_??" in
       let all_files = readdir (dirname backup_path) in
@@ -57,7 +57,8 @@ let cleanup_backups backup_path verbose =
                  Unix.unlink file)
           |> return))
 
-let rec backup_file group base_path glob from_path to_path (verbose : bool) =
+let rec backup_file group base_path glob from_path to_path =
+  let* { verbose; _ } = ask in
   try
     let glob_matches () =
       Glob.test (Glob.of_string glob) (basename from_path)
@@ -65,10 +66,9 @@ let rec backup_file group base_path glob from_path to_path (verbose : bool) =
 
     let copy_and_cleanup () =
       mkdir_p (dirname to_path) 0o775;
-      printf "%s ==>\n\t%s\n" from_path to_path;
-      Out_channel.flush stdout;
+      printf "%s ==>\n\t%s\n%!" from_path to_path;
       file_copy from_path to_path;
-      let* () = cleanup_backups to_path verbose in
+      let* () = cleanup_backups to_path in
       return (1, [])
     in
 
@@ -106,7 +106,7 @@ let rec backup_file group base_path glob from_path to_path (verbose : bool) =
     in
 
     if dir_exists from_path then
-      backup_files group base_path glob from_path to_path verbose
+      backup_files group base_path glob from_path to_path
     else if glob_matches () then backup_file' ()
     else return (0, [])
   with e ->
@@ -117,22 +117,21 @@ let rec backup_file group base_path glob from_path to_path (verbose : bool) =
     warn warning;
     return (1, [ warning ])
 
-and backup_files group base_path glob from_path to_path verbose =
+and backup_files group base_path glob from_path to_path =
   readdir from_path
   |> Array.foldm
        ~f:(fun (c, es) path ->
          let file = basename path in
 
          let* new_count, new_errs =
-           backup_file group base_path glob (from_path ^/ file)
-             (to_path ^/ file) verbose
+           backup_file group base_path glob (from_path ^/ file) (to_path ^/ file)
          in
 
          return (c + new_count, es @ new_errs))
        ~init:(0, [])
 
-let backup_group group_name verbose =
-  let* config = ask in
+let backup_group group_name =
+  let* { config; _ } = ask in
   let start_time = Unix.gettimeofday () in
 
   let group =
@@ -145,7 +144,6 @@ let backup_group group_name verbose =
         let* backed_up_count, warnings =
           backup_files group.name group.path group.glob group.path
             (config.path ^/ group_name)
-            verbose
         in
 
         (if backed_up_count > 0 then
@@ -171,8 +169,8 @@ let backup_group group_name verbose =
       let* () = warn_missing_groups [ group_name ] in
       return []
 
-let rec backup (group_names : string list) (loop : bool) (verbose : bool) =
-  let* config = ask in
+let rec backup (group_names : string list) (loop : bool) =
+  let* { config; verbose } = ask in
   let group_names =
     match group_names with
     | [] -> List.map ~f:(fun g -> g.name) config.groups
@@ -183,7 +181,7 @@ let rec backup (group_names : string list) (loop : bool) (verbose : bool) =
     List.foldm group_names
       ~f:(fun acc group ->
         try
-          let* warnings = backup_group group verbose in
+          let* warnings = backup_group group in
           return (acc @ warnings)
         with e ->
           err (sprintf "Error backing up %s: %s" group (Exn.to_string e));
@@ -209,14 +207,14 @@ let rec backup (group_names : string list) (loop : bool) (verbose : bool) =
   if loop then (
     Out_channel.flush stdout;
     Unix.sleep (config.frequency * 60);
-    backup group_names loop verbose)
+    backup group_names loop)
   else return None
 
 let warn_missing_path path =
   if not (dir_exists path) then warn (sprintf "Path doesn't exist: %s" path)
 
 let add (group : string) (path : string) (glob : string) =
-  let* config = ask in
+  let* { config; _ } = ask in
   if List.exists ~f:String.(fun g -> g.name = group) config.groups then (
     err (sprintf "Group with the name %s already exists" group);
 
@@ -232,13 +230,16 @@ let add (group : string) (path : string) (glob : string) =
     let new_glob =
       match glob with "none" | "" -> default_glob | glob -> glob
     in
-    let new_group = { name = group; path = realpath path; glob = new_glob } in
+    let new_group : Group.t =
+      { name = group; path = realpath path; glob = new_glob }
+    in
 
     warn_missing_path new_group.path;
 
     let new_groups =
       config.groups @ [ new_group ]
-      |> List.sort ~compare:(fun g1 g2 -> String.compare g1.name g2.name)
+      |> List.sort ~compare:(fun (g1 : Group.t) g2 ->
+             String.compare g1.name g2.name)
     in
 
     printf "Group added successfully:\n\n";
@@ -246,12 +247,12 @@ let add (group : string) (path : string) (glob : string) =
     return @@ Some { config with groups = new_groups }
 
 let list =
-  let* config = ask in
+  let* { config; _ } = ask in
   List.iter ~f:(fun g -> printf "%s\n" g.name) config.groups;
   return None
 
 let print_info (group_names : string list) =
-  let* config = ask in
+  let* { config; _ } = ask in
   let* () =
     whenm
       (List.length group_names > 0)
@@ -271,7 +272,7 @@ let print_info (group_names : string list) =
   return None
 
 let remove (groups : string list) (yes : bool) =
-  let* config = ask in
+  let* { config; _ } = ask in
   let* () = warn_missing_groups groups in
 
   let new_groups =
@@ -294,7 +295,7 @@ let edit
     (name : string option)
     (path : string option)
     (glob : string option) =
-  let* config = ask in
+  let* { config; verbose } = ask in
   match (name, path, glob) with
   | None, None, None ->
       err "One or more of --name, --path, or --glob must be provided.";
@@ -323,7 +324,7 @@ let edit
 
           let new_path = Option.value ~default:group.path path |> realpath in
 
-          let edited_group =
+          let edited_group : Group.t =
             { name = new_name
             ; path = new_path
             ; glob = new_glob |> Option.value ~default:group.glob
@@ -344,7 +345,7 @@ let edit
             Group.print group ~new_name ~new_path ?new_glob;
             let backup_dir_exists = dir_exists (config.path ^/ group_name) in
             if Option.is_some name && backup_dir_exists then (
-              warn "Group name changed, renaming backup directory...";
+              note verbose "Group name changed, renaming backup directory...";
               Unix.rename (config.path ^/ group_name) (config.path ^/ new_name));
 
             return
@@ -354,7 +355,7 @@ let edit_config
     (backup_dir : string option)
     (backup_freq : int option)
     (backups_to_keep : int option) =
-  let* config = ask in
+  let* { config; _ } = ask in
   let new_backup_dir =
     Option.map ~f:realpath backup_dir |> Option.value ~default:config.path
   in
@@ -378,11 +379,13 @@ let edit_config
            ; num_to_keep = new_backups_to_keep
            }
 
-let load_config_t = Term.(const Config.load $ config_path_t)
+let run_config_t =
+  Term.(
+    const (fun c v : RunConfig.t -> { config = c; verbose = v })
+    $ (const Config.load $ config_path_t)
+    $ verbose_t)
 
-let backup_t =
-  Term.(const backup $ BackupCmd.groups $ BackupCmd.loop $ BackupCmd.verbose)
-
+let backup_t = Term.(const backup $ BackupCmd.groups $ BackupCmd.loop)
 let add_t = Term.(const add $ AddCmd.group $ AddCmd.path $ AddCmd.glob)
 let list_t = Term.(const list)
 let info_t = Term.(const print_info $ InfoCmd.groups)
@@ -395,7 +398,7 @@ let config_t =
   Term.(
     const edit_config $ ConfigCmd.path $ ConfigCmd.frequency $ ConfigCmd.keep)
 
-let vbu_info = Term.info "vbu" ~version:"v1.3.2"
+let vbu_info = Term.info "vbu" ~version:"v1.4.0"
 let vbu_t = Term.(ret (const (Fn.const (`Help (`Pager, None))) $ const 0))
 
 let () =
@@ -413,7 +416,7 @@ let () =
     ; (edit_t, EditCmd.info)
     ; (config_t, ConfigCmd.info)
     ]
-    |> List.map ~f:(fun (term, i) -> Term.(const run $ term $ load_config_t, i))
+    |> List.map ~f:(fun (term, i) -> Term.(const run $ term $ run_config_t, i))
     |> Term.eval_choice (vbu_t, vbu_info)
   in
   match result with
