@@ -59,7 +59,7 @@ let cleanup_backups backup_path =
                  Unix.unlink file)
           |> return))
 
-let rec backup_file group base_path glob from_path to_path =
+let rec backup_file group base_path glob from_path to_path force =
   let open Vbu.Let_syntax in
   let%bind { verbose; _ } = ask in
   try
@@ -70,7 +70,7 @@ let rec backup_file group base_path glob from_path to_path =
     let copy_and_cleanup () =
       mkdir_p (dirname to_path) 0o775;
       printf "%s ==>\n\t%s\n%!" from_path to_path;
-      file_copy from_path to_path;
+      file_copy from_path to_path ~overwrite:force;
       let%bind () = cleanup_backups to_path in
       return (1, [])
     in
@@ -101,15 +101,16 @@ let rec backup_file group base_path glob from_path to_path =
         match to_mod_time with
         | Some to_mod_time ->
             if Int.of_float from_mod_time <> Int.of_float to_mod_time then (
-              Unix.rename to_path
-                (to_path ^ ".bak." ^ format_filename_time to_mod_time);
+              file_move to_path
+                (to_path ^ ".bak." ^ format_filename_time to_mod_time)
+                ~overwrite:force;
               copy_and_cleanup ())
             else return (0, [])
         | None -> copy_and_cleanup ()
     in
 
     if dir_exists from_path then
-      backup_files group base_path glob from_path to_path
+      backup_files group base_path glob from_path to_path force
     else if glob_matches () then backup_file' ()
     else return (0, [])
   with e ->
@@ -120,7 +121,7 @@ let rec backup_file group base_path glob from_path to_path =
     warn warning;
     return (1, [ warning ])
 
-and backup_files group base_path glob from_path to_path =
+and backup_files group base_path glob from_path to_path force =
   let open Vbu.Let_syntax in
   readdir from_path
   |> Array.fold_m
@@ -128,13 +129,14 @@ and backup_files group base_path glob from_path to_path =
          let file = basename path in
 
          let%bind new_count, new_errs =
-           backup_file group base_path glob (from_path ^/ file) (to_path ^/ file)
+           backup_file group base_path glob (from_path ^/ file)
+             (to_path ^/ file) force
          in
 
          return (c + new_count, es @ new_errs))
        ~init:(0, [])
 
-let backup_group group_name =
+let backup_group group_name force =
   let open Vbu.Let_syntax in
   let%bind { config; _ } = ask in
   let start_time = Unix.gettimeofday () in
@@ -149,6 +151,7 @@ let backup_group group_name =
         let%bind backed_up_count, warnings =
           backup_files group.name group.path group.glob group.path
             (config.path ^/ group_name)
+            force
         in
 
         (if backed_up_count > 0 then
@@ -174,7 +177,7 @@ let backup_group group_name =
       let%bind () = warn_missing_groups [ group_name ] in
       return []
 
-let rec backup (group_names : string list) (loop : bool) =
+let rec backup (group_names : string list) (loop : bool) (force : bool) =
   let open Vbu.Let_syntax in
   let%bind { config; verbose } = ask in
   let group_names =
@@ -187,7 +190,7 @@ let rec backup (group_names : string list) (loop : bool) =
     List.fold_m group_names
       ~f:(fun acc group ->
         try
-          let%bind warnings = backup_group group in
+          let%bind warnings = backup_group group force in
           return (acc @ warnings)
         with e ->
           err (sprintf "Error backing up %s: %s" group (Exn.to_string e));
@@ -213,7 +216,7 @@ let rec backup (group_names : string list) (loop : bool) =
   if loop then (
     Out_channel.flush stdout;
     Unix.sleep (config.frequency * 60);
-    backup group_names loop)
+    backup group_names loop force)
   else return None
 
 let warn_missing_path path =
@@ -397,7 +400,9 @@ let run_config_t =
     $ (const Config.load $ config_path_t)
     $ verbose_t)
 
-let backup_t = Term.(const backup $ BackupCmd.groups $ BackupCmd.loop)
+let backup_t =
+  Term.(const backup $ BackupCmd.groups $ BackupCmd.loop $ BackupCmd.force)
+
 let add_t = Term.(const add $ AddCmd.group $ AddCmd.path $ AddCmd.glob)
 let list_t = Term.(const list)
 let info_t = Term.(const print_info $ InfoCmd.groups)
@@ -410,7 +415,7 @@ let config_t =
   Term.(
     const edit_config $ ConfigCmd.path $ ConfigCmd.frequency $ ConfigCmd.keep)
 
-let vbu_info = Term.info "vbu" ~version:"v1.4.0"
+let vbu_info = Term.info "vbu" ~version:"v1.5.0"
 let vbu_t = Term.(ret (const (Fn.const (`Help (`Pager, None))) $ const 0))
 
 let () =

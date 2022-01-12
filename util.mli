@@ -18,7 +18,8 @@ module FileSystem : sig
   val default_glob : string
   val mkdir_p : string -> int -> unit
   val dir_exists : string -> bool
-  val file_copy : string -> string -> unit
+  val file_copy : ?overwrite:bool -> string -> string -> unit
+  val file_move : ?overwrite:bool -> string -> string -> unit
 end
 
 module DateTime : sig

@@ -47,30 +47,42 @@ module FileSystem = struct
 
   let dir_exists path_name = file_exists path_name && is_directory path_name
 
+  let file_move ?(overwrite = false) input_name output_name =
+    if (not overwrite) && file_exists output_name then
+      failwithf "file_move: not overwriting existing file %s" output_name ()
+    else Unix.rename input_name output_name
+
   module FileCopy = struct
     let buffer_size = 8192
     let buffer = Bytes.create buffer_size
 
-    let file_copy input_name output_name =
-      let fd_in = Unix.(openfile input_name [ O_RDONLY ] 0) in
-      let fd_out =
-        Unix.(openfile output_name [ O_WRONLY; O_CREAT; O_TRUNC ] 0o666)
-      in
-      let rec copy_loop () =
-        match Unix.read fd_in buffer 0 buffer_size with
-        | 0 -> ()
-        | r ->
-            let (_ : int) = Unix.write fd_out buffer 0 r in
-            copy_loop ()
-      in
-      copy_loop ();
-      Unix.close fd_in;
-      Unix.close fd_out;
+    let file_copy ?(overwrite = false) input_name output_name =
+      if (not overwrite) && file_exists output_name then
+        failwithf "file_copy: not overwriting existing file %s" output_name ()
+      else
+        let fd_in = Unix.(openfile input_name [ O_RDONLY ] 0) in
+        Exn.protect
+          ~finally:(fun () -> Unix.close fd_in)
+          ~f:(fun () ->
+            let fd_out =
+              Unix.(openfile output_name [ O_WRONLY; O_CREAT; O_TRUNC ] 0o666)
+            in
+            Exn.protect
+              ~finally:(fun () -> Unix.close fd_out)
+              ~f:(fun () ->
+                let rec copy_loop () =
+                  match Unix.read fd_in buffer 0 buffer_size with
+                  | 0 -> ()
+                  | r ->
+                      let (_ : int) = Unix.write fd_out buffer 0 r in
+                      copy_loop ()
+                in
+                copy_loop ();
 
-      let stats = Unix.lstat input_name in
-      let atime = stats.st_atime in
-      let mtime = stats.st_mtime in
-      Unix.utimes output_name atime mtime
+                let stats = Unix.lstat input_name in
+                let atime = stats.st_atime in
+                let mtime = stats.st_mtime in
+                Unix.utimes output_name atime mtime))
   end
 
   include FileCopy

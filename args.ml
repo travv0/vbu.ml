@@ -12,7 +12,7 @@ let config_path_t =
 
 let verbose_t =
   let doc = "Print verbose output." in
-  Arg.(value & flag & info [ "v"; "verbose" ] ~docv:"VERBOSE" ~doc)
+  Arg.(value & flag & info [ "v"; "verbose" ] ~doc)
 
 module BackupCmd = struct
   let info = Term.info "backup" ~doc:"Backup your files."
@@ -27,7 +27,11 @@ module BackupCmd = struct
     let doc =
       "Keep running, backing up files at the interval specified in your config."
     in
-    Arg.(value & flag & info [ "l"; "loop" ] ~docv:"LOOP" ~doc)
+    Arg.(value & flag & info [ "l"; "loop" ] ~doc)
+
+  let force =
+    let doc = "Force all file backups to overwrite any conflicting files." in
+    Arg.(value & flag & info [ "f"; "force" ] ~doc)
 end
 
 module AddCmd = struct
@@ -76,7 +80,7 @@ module RemoveCmd = struct
 
   let yes =
     let doc = "Remove all without confirmation prompts." in
-    Arg.(value & flag & info [ "y"; "yes" ] ~docv:"YES" ~doc)
+    Arg.(value & flag & info [ "y"; "yes" ] ~doc)
 end
 
 module EditCmd = struct
