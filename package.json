@@ -22,5 +22,8 @@
   },
   "devDependencies": {
     "@opam/ocaml-lsp-server": "*"
+  },
+  "resolutions": {
+    "@opam/ocaml-lsp-server": "ocaml/ocaml-lsp:ocaml-lsp-server.opam#2cb1a2d"
   }
 }
