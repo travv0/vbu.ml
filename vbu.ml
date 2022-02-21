@@ -123,18 +123,21 @@ let rec backup_file group base_path glob from_path to_path force =
 
 and backup_files group base_path glob from_path to_path force =
   let open Vbu.Let_syntax in
-  readdir from_path
-  |> Array.fold_m
-       ~f:(fun (c, es) path ->
-         let file = basename path in
+  let%bind { config = { path = backup_path; _ }; _ } = ask in
+  if String.(realpath from_path <> realpath backup_path) then
+    readdir from_path
+    |> Array.fold_m
+         ~f:(fun (c, es) path ->
+           let file = basename path in
 
-         let%bind new_count, new_errs =
-           backup_file group base_path glob (from_path ^/ file)
-             (to_path ^/ file) force
-         in
+           let%bind new_count, new_errs =
+             backup_file group base_path glob (from_path ^/ file)
+               (to_path ^/ file) force
+           in
 
-         return (c + new_count, es @ new_errs))
-       ~init:(0, [])
+           return (c + new_count, es @ new_errs))
+         ~init:(0, [])
+  else return (0, [])
 
 let backup_group group_name force =
   let open Vbu.Let_syntax in
@@ -415,7 +418,7 @@ let config_t =
   Term.(
     const edit_config $ ConfigCmd.path $ ConfigCmd.frequency $ ConfigCmd.keep)
 
-let vbu_info = Term.info "vbu" ~version:"v1.5.0"
+let vbu_info = Term.info "vbu" ~version:"v1.5.1"
 let vbu_t = Term.(ret (const (Fn.const (`Help (`Pager, None))) $ const 0))
 
 let () =

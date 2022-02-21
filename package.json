@@ -11,8 +11,8 @@
   "dependencies": {
     "@opam/ANSITerminal": "0.8.3",
     "@opam/base": "*",
-    "@opam/cmdliner": "*",
-    "@opam/dune": "*",
+    "@opam/cmdliner": "~1.0",
+    "@opam/dune": "2.9.3",
     "@opam/dune-glob": "2.9.1",
     "@opam/ppx_deriving_yojson": "*",
     "@opam/ppx_let": "*",
@@ -21,9 +21,7 @@
     "ocaml": "*"
   },
   "devDependencies": {
-    "@opam/ocaml-lsp-server": "*"
-  },
-  "resolutions": {
-    "@opam/ocaml-lsp-server": "ocaml/ocaml-lsp:ocaml-lsp-server.opam#2cb1a2d"
+    "@opam/ocaml-lsp-server": "*",
+    "@opam/utop": "*"
   }
 }

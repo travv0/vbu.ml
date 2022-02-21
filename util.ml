@@ -24,7 +24,12 @@ module Console = struct
 end
 
 module FileSystem = struct
-  let home_dir = Sys.getenv "HOME" |> Option.value ~default:"."
+  let home_dir =
+    Sys.getenv "HOME"
+    |> Option.value
+         ~default:
+           (Sys.getenv "USERPROFILE"
+           |> Option.value ~default:Caml.Filename.dir_sep)
 
   let default_config_path =
     Caml.Filename.concat (Caml.Filename.concat home_dir ".vbu") "config.json"
